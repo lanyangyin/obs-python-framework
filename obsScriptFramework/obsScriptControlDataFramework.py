@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from collections import OrderedDict as PyOrderedDict
 from typing import Any, Union, Optional, Callable, List, Dict, Literal, TypeVar, OrderedDict, Set
 
@@ -411,6 +410,7 @@ class ControlManager:
     3. 确保同一分类下object_name唯一
     4. 自动管理load_order
     5. 提供方便的访问接口
+    6. 维护基础group控件和group_props_name约束
     """
 
     def __init__(self):
@@ -431,11 +431,17 @@ class ControlManager:
         # 按props_name分组的控件字典
         self._widgets_by_props: Dict[str, List[str]] = {}
 
+        # 存储所有group控件的group_props_name，用于唯一性检查
+        self._group_props_names: Set[str] = set()
+
         # 加载顺序计数器
         self._load_order_counter = 0
 
         # 为每个分类创建动态属性，允许通过.语法访问分类管理器
         self._setup_category_properties()
+
+        # 创建基础group控件
+        self._create_basic_group()
 
     def _setup_category_properties(self):
         """为每个控件分类设置动态属性"""
@@ -447,6 +453,31 @@ class ControlManager:
             # 使用分类枚举值的名称作为属性名（小写）
             prop_name = category.name.lower()
             setattr(self, prop_name, category_manager)
+
+    def _create_basic_group(self):
+        """创建基础group控件"""
+        # 使用内部方法直接创建，不经过验证
+        widget_class = GroupData
+
+        basic_group = widget_class(
+            widget_category=WidgetCategory.GROUP,
+            control_name="group",
+            object_name="group",
+            description="分组框",
+            widget_variant=GroupVariant.NORMAL,
+            group_props_name="props",
+            props_name="props",
+            load_order=0
+        )
+
+        # 直接添加到各种映射中
+        self._add_control_to_maps(basic_group)
+
+        # 将基础group的group_props_name添加到集合中
+        self._group_props_names.add(basic_group.group_props_name)
+
+        # 增加加载顺序计数器
+        self._load_order_counter += 1
 
     def _validate_uniqueness(self, control_name: str, category: WidgetCategory, object_name: str) -> None:
         """
@@ -467,6 +498,58 @@ class ControlManager:
         # 验证object_name在同一分类下唯一
         if object_name in self._object_names_by_category[category]:
             raise ValueError(f"object_name '{object_name}' 在分类 {category.value} 中已存在")
+
+    def _validate_group_props_name(self, widget: ControlBaseData) -> None:
+        """
+        验证group控件的group_props_name约束
+
+        参数:
+            widget: group控件数据对象
+
+        异常:
+            ValueError: 如果违反group_props_name约束
+        """
+        if not isinstance(widget, GroupData):
+            return
+
+        # 对于基础group控件，允许props_name等于group_props_name
+        if widget.control_name == "group":
+            return
+
+        # 1. 非基础group控件的group_props_name不能等于props_name
+        if widget.group_props_name == widget.props_name:
+            raise ValueError(
+                f"非基础group控件 '{widget.control_name}' 的 "
+                f"group_props_name '{widget.group_props_name}' 不能等于 props_name"
+            )
+
+        # 2. 所有group控件的group_props_name不能重名
+        if widget.group_props_name in self._group_props_names:
+            raise ValueError(
+                f"group_props_name '{widget.group_props_name}' 已存在，"
+                f"所有group控件的group_props_name不能重名"
+            )
+
+    def _validate_props_name(self, widget: ControlBaseData) -> None:
+        """
+        验证控件的props_name必须来自某个group控件的group_props_name
+
+        参数:
+            widget: 控件数据对象
+
+        异常:
+            ValueError: 如果props_name无效
+        """
+        # 对于基础group控件，跳过验证
+        if isinstance(widget, GroupData) and widget.control_name == "group":
+            return
+
+        # 验证props_name必须存在于已注册的group_props_name中
+        if widget.props_name not in self._group_props_names:
+            raise ValueError(
+                f"控件 '{widget.control_name}' 的 props_name '{widget.props_name}' "
+                f"必须来自某个group控件的group_props_name"
+            )
 
     def _add_control_to_maps(self, widget: ControlBaseData) -> None:
         """
@@ -495,6 +578,11 @@ class ControlManager:
         # 如果是Group，还需要处理group_props_name
         if category == WidgetCategory.GROUP and hasattr(widget, 'group_props_name'):
             group_props_name = widget.group_props_name
+
+            # 如果是基础group控件，group_props_name已经添加过了
+            if widget.control_name != "group":
+                self._group_props_names.add(group_props_name)
+
             if group_props_name not in self._widgets_by_props:
                 self._widgets_by_props[group_props_name] = []
 
@@ -539,7 +627,7 @@ class ControlManager:
             创建的控件数据对象
 
         异常:
-            ValueError: 如果名称违反唯一性约束
+            ValueError: 如果名称违反唯一性约束或其他验证失败
         """
         # 如果未提供object_name，使用control_name
         if object_name is None:
@@ -567,6 +655,12 @@ class ControlManager:
 
         # 创建控件实例
         widget = widget_class(**kwargs)
+
+        # 验证props_name必须来自group_props_name
+        self._validate_props_name(widget)
+
+        # 验证group控件的group_props_name约束
+        self._validate_group_props_name(widget)
 
         # 添加到各种映射中
         self._add_control_to_maps(widget)
@@ -617,16 +711,33 @@ class ControlManager:
         self._global_control_names.clear()
         self._object_names_by_category = {category: set() for category in WidgetCategory}
         self._widgets_by_props.clear()
+        self._group_props_names.clear()
         self._load_order_counter = 0
+
+        # 重新创建基础group控件
+        self._create_basic_group()
 
     @property
     def total_widgets(self) -> int:
         """获取控件总数"""
         return len(self._global_control_names)
 
+    @property
+    def basic_group(self) -> GroupData:
+        """获取基础group控件"""
+        return self._widgets_by_category[WidgetCategory.GROUP]["group"]
+
+    @property
+    def available_group_props_names(self) -> Set[str]:
+        """获取所有可用的group_props_name"""
+        return self._group_props_names.copy()
+
     def __str__(self) -> str:
         """字符串表示"""
         result = [f"ControlManager (共 {self.total_widgets} 个控件)"]
+        result.append(
+            f"基础group控件: {self.basic_group.control_name} (group_props_name: {self.basic_group.group_props_name})")
+        result.append(f"可用group_props_name: {', '.join(self._group_props_names)}")
 
         for category in WidgetCategory:
             count = len(self._widgets_by_category[category])
@@ -760,19 +871,27 @@ if __name__ == "__main__":
     print("控件管理器使用示例")
     print("=" * 60)
 
-    # 1. 添加控件示例
-    print("\n1. 添加控件示例")
+    # 1. 验证基础group控件已存在
+    print("\n1. 基础group控件验证")
+    print("-" * 40)
+    print(f"基础group控件: {cm.basic_group.control_name}")
+    print(f"  props_name: {cm.basic_group.props_name}")
+    print(f"  group_props_name: {cm.basic_group.group_props_name}")
+    print(f"可用group_props_name: {cm.available_group_props_names}")
+
+    # 2. 添加控件示例
+    print("\n2. 添加控件示例")
     print("-" * 40)
 
-    # 添加一个复选框
+    # 添加一个复选框，使用基础group的group_props_name作为props_name
     cm.checkbox.add(
         control_name="enable_feature",
         object_name="enable_feature_checkbox",
         description="启用高级功能",
         checked=True,
-        props_name="main_props"
+        props_name="props"  # 来自基础group的group_props_name
     )
-    print(f"添加了复选框: enable_feature")
+    print(f"添加了复选框: enable_feature (props_name: 'props')")
 
     # 添加一个数字框
     cm.digitalbox.add(
@@ -784,39 +903,96 @@ if __name__ == "__main__":
         min_val=0,
         max_val=100,
         suffix="%",
-        props_name="main_props"
+        props_name="props"  # 来自基础group的group_props_name
     )
-    print(f"添加了数字框: volume_level")
+    print(f"添加了数字框: volume_level (props_name: 'props')")
 
-    # 添加一个文本框
-    cm.textbox.add(
-        control_name="user_name",
-        object_name="name_input",
-        description="用户名",
-        widget_variant=TextBoxVariant.DEFAULT,
-        text="默认用户",
-        props_name="main_props"
+    # 3. 添加一个新分组框
+    print("\n3. 添加新分组框示例")
+    print("-" * 40)
+
+    # 添加一个可勾选分组框
+    cm.group.add(
+        control_name="audio_settings",
+        object_name="audio_group",
+        description="音频设置",
+        widget_variant=GroupVariant.CHECKABLE,
+        group_props_name="audio_props",  # 新的group_props_name
+        props_name="props",  # 来自基础group的group_props_name
+        checked=True
     )
-    print(f"添加了文本框: user_name")
+    print(f"添加了分组框: audio_settings")
+    print(f"  group_props_name: 'audio_props'")
+    print(f"  props_name: 'props'")
 
-
-    # 添加一个按钮
-    def test_callback(props, prop):
-        print("按钮被点击了!")
-        return True
-
-
-    cm.button.add(
-        control_name="test_button",
-        object_name="test_btn",
-        description="测试按钮",
-        widget_variant=ButtonVariant.DEFAULT,
-        callback=test_callback,
-        props_name="main_props"
+    # 现在可以向audio_props添加控件
+    cm.checkbox.add(
+        control_name="enable_echo",
+        object_name="echo_checkbox",
+        description="启用回声消除",
+        checked=False,
+        props_name="audio_props"  # 来自audio_settings分组的group_props_name
     )
-    print(f"添加了按钮: test_button")
+    print(f"添加了复选框: enable_echo (props_name: 'audio_props')")
 
-    # 添加一个组合框
+    # 4. 验证规则测试
+    print("\n4. 验证规则测试")
+    print("-" * 40)
+
+    # 测试1: 尝试使用无效的props_name
+    try:
+        cm.checkbox.add(
+            control_name="test_invalid_props",
+            object_name="test_invalid",
+            description="测试无效props_name",
+            checked=True,
+            props_name="invalid_props"  # 不存在于任何group的group_props_name中
+        )
+    except ValueError as e:
+        print(f"测试1 - 使用无效props_name: {e}")
+
+    # 测试2: 尝试添加group_props_name重复的分组
+    try:
+        cm.group.add(
+            control_name="duplicate_group",
+            object_name="dup_group",
+            description="重复分组",
+            widget_variant=GroupVariant.NORMAL,
+            group_props_name="audio_props",  # 已经存在
+            props_name="props"
+        )
+    except ValueError as e:
+        print(f"测试2 - 重复group_props_name: {e}")
+
+    # 测试3: 尝试添加group_props_name等于props_name的分组（非基础）
+    try:
+        cm.group.add(
+            control_name="invalid_group",
+            object_name="invalid_grp",
+            description="无效分组",
+            widget_variant=GroupVariant.NORMAL,
+            group_props_name="props",  # 等于props_name，这是不允许的
+            props_name="props"
+        )
+    except ValueError as e:
+        print(f"测试3 - group_props_name等于props_name: {e}")
+
+    # 5. 添加更多分组和控件
+    print("\n5. 添加更多分组和控件")
+    print("-" * 40)
+
+    # 添加另一个分组框
+    cm.group.add(
+        control_name="video_settings",
+        object_name="video_group",
+        description="视频设置",
+        widget_variant=GroupVariant.NORMAL,
+        group_props_name="video_props",
+        props_name="props"
+    )
+    print(f"添加了分组框: video_settings (group_props_name: 'video_props')")
+
+    # 向video_props添加控件
     cm.combobox.add(
         control_name="resolution",
         object_name="res_combo",
@@ -829,116 +1005,45 @@ if __name__ == "__main__":
             {"label": "1280x720 (高清)", "value": "1280x720"},
             {"label": "3840x2160 (4K)", "value": "3840x2160"}
         ],
-        props_name="main_props"
+        props_name="video_props"  # 来自video_settings分组的group_props_name
     )
-    print(f"添加了组合框: resolution")
+    print(f"添加了组合框: resolution (props_name: 'video_props')")
 
-    # 添加一个颜色选择框
-    cm.colorbox.add(
-        control_name="text_color",
-        object_name="color_picker",
-        description="文本颜色",
-        widget_variant=ColorBoxVariant.ALPHA,
-        color_red=0xFF,
-        color_green=0x00,
-        color_blue=0x00,
-        color_alpha=0xFF,
-        props_name="main_props"
+    # 添加另一个分组框
+    cm.group.add(
+        control_name="test_group",
+        object_name="test",
+        description="测试",
+        widget_variant=GroupVariant.CHECKABLE,
+        group_props_name="test_props",
+        props_name="audio_props"
     )
-    print(f"添加了颜色选择框: text_color")
+    print(f"添加了分组框: video_settings (group_props_name: 'video_props')")
 
-    # 2. 操作控件属性示例
-    print("\n2. 操作控件属性示例")
+    # 6. 显示统计信息
+    print("\n6. 统计信息")
     print("-" * 40)
+    print(cm)
 
-    # 访问和修改控件属性
-    print(f"修改前的音量: {cm.digitalbox.volume_level.value}")
-    cm.digitalbox.volume_level.value = 80
-    print(f"修改后的音量: {cm.digitalbox.volume_level.value}")
-
-    # 修改复选框状态
-    cm.checkbox.enable_feature.checked = False
-    print(f"复选框状态: {cm.checkbox.enable_feature.checked}")
-
-    # 修改文本框内容
-    cm.textbox.user_name.text = "新用户"
-    print(f"文本框内容: {cm.textbox.user_name.text}")
-
-    # 3. 获取按load_order排序的控件列表
-    print("\n3. 按load_order排序的控件列表")
+    # 7. 按load_order排序的控件列表
+    print("\n7. 按load_order排序的控件列表")
     print("-" * 40)
 
     sorted_widgets = cm.get_widgets_by_load_order()
     for widget in sorted_widgets:
-        print(f"  [{widget.load_order:2d}] {widget.widget_category.value}: {widget.control_name}")
+        props_info = f"props_name: {widget.props_name}"
+        if widget.widget_category == WidgetCategory.GROUP:
+            props_info += f", group_props_name: {widget.group_props_name}"
+        print(f"  [{widget.load_order:2d}] {widget.widget_category.value}: {widget.control_name} ({props_info})")
 
-    # 4. 获取props_name映射
-    print("\n4. props_name到控件的映射")
+    # 8. 获取props_name映射
+    print("\n8. props_name到控件的映射")
     print("-" * 40)
 
     props_mapping = cm.get_props_mapping()
     for props_name, control_names in props_mapping.items():
         print(f"  {props_name}: {', '.join(control_names)}")
 
-    # 5. 验证唯一性约束
-    print("\n5. 验证唯一性约束")
-    print("-" * 40)
-
-    try:
-        # 尝试添加重复的control_name
-        cm.checkbox.add(
-            control_name="enable_feature",  # 已存在
-            object_name="another_checkbox",
-            description="另一个复选框"
-        )
-    except ValueError as e:
-        print(f"预期中的错误: {e}")
-
-    try:
-        # 尝试在同一分类下添加重复的object_name
-        cm.checkbox.add(
-            control_name="another_feature",
-            object_name="enable_feature_checkbox",  # 在同一分类中已存在
-            description="另一个功能"
-        )
-    except ValueError as e:
-        print(f"预期中的错误: {e}")
-
-    # 6. 通过control_name查找控件
-    print("\n6. 通过control_name查找控件")
-    print("-" * 40)
-
-    widget = cm.get_widget_by_control_name("volume_level")
-    if widget:
-        print(f"找到控件: {widget.control_name} ({widget.widget_category.value})")
-
-    # 7. 分类管理器功能演示
-    print("\n7. 分类管理器功能演示")
-    print("-" * 40)
-
-    print(f"复选框分类的控件数量: {len(cm.checkbox)}")
-    print(f"复选框分类的控件列表: {list(cm.checkbox.keys())}")
-
-    # 检查控件是否存在
-    print(f"'enable_feature' 在复选框分类中: {'enable_feature' in cm.checkbox}")
-    print(f"'不存在' 在复选框分类中: {'不存在' in cm.checkbox}")
-
-    # 8. 统计信息
-    print("\n8. 统计信息")
-    print("-" * 40)
-    print(cm)
-
-    # 9. 迭代控件示例
-    print("\n9. 迭代所有复选框")
-    print("-" * 40)
-
-    for checkbox in cm.checkbox:
-        print(f"  - {checkbox.control_name}: {checkbox.description}")
-
     print("\n" + "=" * 60)
     print("示例运行完成")
     print("=" * 60)
-
-
-
-
