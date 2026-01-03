@@ -466,7 +466,7 @@ class ControlManager:
             description="分组框",
             widget_variant=GroupVariant.NORMAL,
             group_props_name="props",
-            props_name="props",
+            props_name="",
             load_order=0
         )
 
