@@ -1,161 +1,239 @@
-import json
-import sys
-import os
-from pathlib import Path
+from typing import Callable, Dict
+from obsScriptControlData import *
+from tool import *
+class ControlType(Enum):
+    CHECKBOX = "CheckBox"
+# --- 2. 注册装饰器和注册表 ---
+_control_creator_registry: Dict[ControlType, Callable] = {}
 
-print(f"{Path(__file__)}")
+def creates(control_type: ControlType):
+    """装饰器：自动注册控件创建函数到全局注册表"""
 
-# 添加包路径
-sys.path.insert(0, rf'/Users/lanan/PycharmProjects/OBSscripts-bilibili-live/function/api/Generic')
-# 添加包所在目录到Python路径
-exit(0)
+    def decorator(creator_func: Callable) -> Callable:
+        if control_type in _control_creator_registry:
+            raise ValueError(f"控件类型 {control_type} 已注册")
+        _control_creator_registry[control_type] = creator_func
+        return creator_func
 
-from get_guard_list import *
+    return decorator
 
-# from _Input.function.api import Generic as DataInput
+# --- 3. 各控件的具体创建函数 ---
 
-Headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                  '(KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-}
+@creates(ControlType.TEXTBOX)
+def _create_textbox(w) -> None:
+    """
+    创建文本框控件
+    支持类型: OBS_TEXT_DEFAULT(默认), OBS_TEXT_PASSWORD(密码),
+             OBS_TEXT_MULTILINE(多行), OBS_TEXT_INFO(信息文本)
+    """
+    log_save(obs.LOG_INFO, f"文本框控件: {w.Name} 【{w.Description}】")
 
-# 创建API实例
-api = BilibiliApiGeneric(Headers, verify_ssl=True)
+    # 将字符串类型转换为OBS常量（假设w.Type已经是OBS常量或可转换的字符串）
+    obs_text_type = getattr(obs, f"OBS_TEXT_{w.Type}", obs.OBS_TEXT_DEFAULT) if isinstance(w.Type, str) else w.Type
+    w.Obj = obs.obs_properties_add_text(w.Props, w.Name, w.Description, obs_text_type)
 
-try:
-    # 获取大航海成员列表（包含完整列表）
-    room_id, ruid = 2527421, 3108865
-    result = api.get_guard_list(
-        roomid=room_id,
-        ruid=ruid,
-        page=1,
-        page_size=20,
-        include_total_list=True  # 设置为True获取完整列表
+    # 如果是信息文本类型，设置信息类型
+    if hasattr(w, 'InfoType') and obs_text_type == obs.OBS_TEXT_INFO:
+        obs.obs_property_text_set_info_type(w.Obj, w.InfoType)
+
+@creates(ControlType.BUTTON)
+def _create_button(w) -> None:
+    """
+    创建按钮控件
+    支持类型: OBS_BUTTON_DEFAULT(默认), OBS_BUTTON_URL(URL链接)
+    """
+    log_save(obs.LOG_INFO, f"按钮控件: {w.Name} 【{w.Description}】")
+
+    # 创建按钮（回调函数w.Callback需提前定义）
+    w.Obj = obs.obs_properties_add_button(w.Props, w.Name, w.Description, w.Callback)
+
+    # 设置按钮类型
+    obs_button_type = getattr(obs, f"OBS_BUTTON_{w.Type}", obs.OBS_BUTTON_DEFAULT) if isinstance(w.Type,
+                                                                                                 str) else w.Type
+    obs.obs_property_button_set_type(w.Obj, obs_button_type)
+
+    # 如果是URL按钮，设置URL地址
+    if obs_button_type == obs.OBS_BUTTON_URL and hasattr(w, 'Url'):
+        obs.obs_property_button_set_url(w.Obj, w.Url)
+
+@creates(ControlType.COMBOBOX)
+def _create_combobox(w) -> None:
+    """
+    创建组合框（下拉列表）控件
+    支持类型: OBS_COMBO_TYPE_LIST(列表), OBS_COMBO_TYPE_EDITABLE(可编辑)
+    """
+    log_save(obs.LOG_INFO, f"组合框控件: {w.Name} 【{w.Description}】")
+
+    # 将字符串类型转换为OBS常量
+    obs_combo_type = getattr(obs, f"OBS_COMBO_TYPE_{w.Type}", obs.OBS_COMBO_TYPE_LIST) if isinstance(w.Type,
+                                                                                                     str) else w.Type
+
+    # 创建组合框，格式固定为字符串
+    w.Obj = obs.obs_properties_add_list(
+        w.Props,
+        w.Name,
+        w.Description,
+        obs_combo_type,
+        obs.OBS_COMBO_FORMAT_STRING
     )
 
-    if result["success"]:
-        guard_data = result["data"]
+    # 如果有预定义选项列表，则添加选项
+    if hasattr(w, 'DictionaryList') and w.DictionaryList:
+        # 首先添加默认选项（如果有）
+        if hasattr(w, 'Text') and hasattr(w, 'Value'):
+            obs.obs_property_list_insert_string(w.Obj, 0, w.Text, w.Value)
 
-        # 将完整列表转换为 {uid: guard_level} 字典
-        if "total_list" in guard_data:
-            guard_dict = {}
-            for guard in guard_data["total_list"]:
-                uid = guard["uinfo"]["uid"]
-                guard_level = guard["uinfo"]["guard"]["level"]
-                guard_dict[uid] = guard_level
+        # 添加其他选项（排除默认选项避免重复）
+        for item in w.DictionaryList:
+            item_label = item.get("label", "")
+            item_value = item.get("value", "")
+            if item_label != getattr(w, 'Text', ""):
+                obs.obs_property_list_add_string(w.Obj, item_label, item_value)
 
-            # 现在 guard_dict 就是你要的 {uid: guard_level} 字典
-            print("大航海成员字典:", guard_dict)
+@creates(ControlType.PATHBOX)
+def _create_pathbox(w) -> None:
+    """
+    创建路径选择框控件
+    支持类型: OBS_PATH_FILE(文件), OBS_PATH_DIRECTORY(目录)
+    """
+    log_save(obs.LOG_INFO, f"路径对话框控件: {w.Name} 【{w.Description}】")
 
-            # 如果你需要，可以将这个字典添加回原数据
-            guard_data["guard_dict"] = guard_dict
+    # 将字符串类型转换为OBS常量
+    obs_path_type = getattr(obs, f"OBS_PATH_{w.Type}", obs.OBS_PATH_FILE) if isinstance(w.Type, str) else w.Type
 
-    if result["success"]:
-        guard_data = result["data"]
-        print(json.dumps(guard_data, ensure_ascii=False, indent=2))
+    # 获取过滤器、起始路径等可选参数
+    filter_str = getattr(w, 'Filter', "*.*")
+    default_path = getattr(w, 'StartPath', "")
 
-        # 处理结果
-        total_info = guard_data["total_info"]
-        print(f"\n大航海统计信息:")
-        print(f"总人数: {total_info['num']}")
-        print(f"总页数: {total_info['page']}")
-        print(f"当前页: {total_info['now']}")
+    w.Obj = obs.obs_properties_add_path(
+        w.Props,
+        w.Name,
+        w.Description,
+        obs_path_type,
+        filter_str,
+        default_path
+    )
 
-        # 显示前三名
-        print(f"\n🏆 大航海前三名:")
-        for guard in guard_data["top3"]:
-            user_info = guard["uinfo"]["base"]
-            guard_level = guard["uinfo"]["guard"]["level"]
-            accompany_days = guard["accompany"]
-            rank = guard["rank"]
+@creates(ControlType.GROUP)
+def _create_group(w) -> None:
+    """
+    创建分组框控件
+    支持类型: OBS_GROUP_NORMAL(普通), OBS_GROUP_CHECKABLE(可勾选)
+    """
+    log_save(obs.LOG_INFO, f"分组框控件: {w.Name} 【{w.Description}】")
 
-            level_names = {1: "总督", 2: "提督", 3: "舰长"}
-            level_name = level_names.get(guard_level, f"未知({guard_level})")
+    # 将字符串类型转换为OBS常量
+    obs_group_type = getattr(obs, f"OBS_GROUP_{w.Type}", obs.OBS_GROUP_NORMAL) if isinstance(w.Type, str) else w.Type
 
-            print(f"第{rank}名: {user_info['name']} - {level_name} - 陪伴{accompany_days}天")
+    # 确保分组有对应的属性集对象
+    if not hasattr(w, 'GroupProps'):
+        log_save(obs.LOG_WARNING, f"分组 {w.Name} 缺少GroupProps属性")
+        return
 
-        # 显示当前页成员
-        print(f"\n📋 当前页成员 (第{total_info['now']}页):")
-        for guard in guard_data["list"]:
-            user_info = guard["uinfo"]["base"]
-            guard_level = guard["uinfo"]["guard"]["level"]
-            accompany_days = guard["accompany"]
-            rank = guard["rank"]
+    w.Obj = obs.obs_properties_add_group(
+        w.Props,
+        w.Name,
+        w.Description,
+        obs_group_type,
+        w.GroupProps
+    )
 
-            level_names = {1: "总督", 2: "提督", 3: "舰长"}
-            level_name = level_names.get(guard_level, f"未知({guard_level})")
+    # 如果是可勾选分组，创建额外的折叠控制复选框
+    if obs_group_type == obs.OBS_GROUP_CHECKABLE:
+        folding_name = f"{w.Name}_folding"
+        folding_desc = f"{w.Description}[折叠]"
+        w.FoldingObj = obs.obs_properties_add_bool(w.Props, folding_name, folding_desc)
+        log_save(obs.LOG_INFO, f"创建可勾选分组折叠控制: {folding_name}")
 
-            print(f"第{rank}名: {user_info['name']} - {level_name} - 陪伴{accompany_days}天")
+@creates(ControlType.CHECKBOX)
+def _create_checkbox(w):
+    """创建复选框控件"""
+    log_save(obs.LOG_INFO, f"复选框控件: {w.Name} 【{w.Description}】")
+    w.Obj = obs.obs_properties_add_bool(w.Props, w.Name, w.Description)
 
-        # 如果包含完整列表，显示统计信息
-        if "total_list" in guard_data:
-            total_list = guard_data["total_list"]
-            print(f"\n📊 完整大航海列表统计 ({len(total_list)} 名成员):")
+@creates(ControlType.DIGITALBOX)
+def _create_digitalbox(w):
+    """创建数字输入或滑块控件"""
+    log_save(obs.LOG_INFO, f"数字框控件: {w.Name} 【{w.Description}】")
+    type_map = {
+        "IntSlider": obs.obs_properties_add_int_slider,
+        "Int": obs.obs_properties_add_int,
+        "FloatSlider": obs.obs_properties_add_float_slider,
+        "Float": obs.obs_properties_add_float,
+    }
+    creator_func = type_map.get(w.Type, obs.obs_properties_add_float_slider)
+    w.Obj = creator_func(w.Props, w.Name, w.Description, w.Min, w.Max, w.Step)
+    if w.Suffix:
+        obs.obs_property_int_set_suffix(w.Obj, w.Suffix)
 
-            # 等级统计
-            level_count = {}
-            for guard in total_list:
-                guard_level = guard["uinfo"]["guard"]["level"]
-                level_count[guard_level] = level_count.get(guard_level, 0) + 1
+# --- 4. 辅助函数：获取创建器 ---
+def get_control_creator(control_type: ControlType):
+    """根据控件类型字符串获取对应的创建函数"""
+    try:
+        return _control_creator_registry.get(control_type)
+    except ValueError:
+        log_save(obs.LOG_WARNING, f"未知的控件类型: {control_type}")
+        return None
 
-            print(f"等级分布:")
-            for level, count in sorted(level_count.items()):
-                level_names = {1: "总督", 2: "提督", 3: "舰长"}
-                level_name = level_names.get(level, f"未知({level})")
-                print(f"  {level_name}: {count}人")
+def _init_property_sets(widgets):
+    """职责1：初始化所有需要的属性集"""
+    props_dict = {"props": obs.obs_properties_create()}
+    for props_name in widget.props_Collection:
+        props_dict[props_name] = obs.obs_properties_create()
+    for w in widgets:
+        w.Props = props_dict[w.PropsName]
+        if w.WidgetType == ControlType.GROUP:
+            w.GroupProps = props_dict[w.GroupPropsName]
+    return props_dict
 
-            # 陪伴天数统计
-            accompany_days = [guard["accompany"] for guard in total_list]
-            if accompany_days:
-                print(f"陪伴天数: 最长{max(accompany_days)}天, 平均{sum(accompany_days) // len(accompany_days)}天")
+def _create_control_for_widget(w):
+    """为单个控件对象执行创建和通用设置"""
+    # 1. 获取对应的创建函数
+    creator = get_control_creator(w.WidgetType)
+    if not creator:
+        log_save(obs.LOG_WARNING, f"未找到 {w.WidgetType} 的创建器，跳过")
+        return
 
-    else:
-        print(f"获取大航海列表失败: {result['error']}")
-        if "response_data" in result:
-            print(f"完整响应: {json.dumps(result['response_data'], ensure_ascii=False, indent=2)}")
+    # 2. 执行创建
+    creator(w)
 
+    # 3. 设置长描述（所有控件通用）
+    if hasattr(w, 'LongDescription') and w.LongDescription:
+        obs.obs_property_set_long_description(w.Obj, w.LongDescription)
 
-    def get_guard_dict(api, roomid, ruid, **kwargs):
-        """
-        获取大航海成员字典的包装函数
+    # 4. 设置修改回调（根据条件）
+    callback_conditions = [
+        getattr(w, 'ModifiedIs', False),
+        (w.WidgetType == ControlType.GROUP and
+         getattr(w, 'Type', None) == obs.OBS_GROUP_CHECKABLE)
+    ]
 
-        Args:
-            api: BilibiliApiGeneric 实例
-            roomid: 直播间号
-            ruid: 主播UID
-            **kwargs: 其他参数传递给 get_guard_list
+    if any(callback_conditions):
+        log_save(obs.LOG_INFO, f"为{w.WidgetType}: 【{w.Description}】添加触发回调")
+        obs.obs_property_set_modified_callback(
+            w.Obj,
+            lambda ps, p, st, name=w.Name: property_modified(name)
+        )
 
-        Returns:
-            包含操作结果的字典，其中data字段包含guard_dict
-        """
-        # 确保获取完整列表
-        kwargs['include_total_list'] = True
+        # 分组框的特殊折叠控件回调
+        if w.WidgetType == ControlType.GROUP and hasattr(w, 'FoldingObj'):
+            obs.obs_property_set_modified_callback(
+                w.FoldingObj,
+                lambda ps, p, st, name=f"{w.Name}_folding": property_modified(name)
+            )
 
-        # 调用原函数
-        result = api.get_guard_list(roomid, ruid, **kwargs)
+def script_properties():
+    """主属性创建函数"""
+    log_save(obs.LOG_INFO, "script_properties 被调用")
 
-        if result["success"]:
-            # 转换列表为字典
-            guard_dict = {}
-            total_list = result["data"].get("total_list", [])
+    # 1. 初始化属性集
+    all_widgets = widget.get_sorted_controls().copy()
+    props_dict = _init_property_sets(all_widgets)
 
-            for guard in total_list:
-                uid = guard["uinfo"]["uid"]
-                guard_level = guard["uinfo"]["guard"]["level"]
-                guard_dict[uid] = guard_level
+    # 2. 创建所有控件
+    for w in all_widgets:
+        _create_control_for_widget(w)
 
-            # 将字典添加到返回数据中
-            result["data"]["guard_dict"] = guard_dict
-
-        return result
-
-
-    # 使用示例
-    result = get_guard_dict(api, room_id, ruid, page=1)
-    if result["success"]:
-        guard_dict = result["data"]["guard_dict"]
-        print("大航海成员字典:", guard_dict)
-
-except Exception as e:
-    print(f"错误: {e}")
-
+    # 3. 更新界面并返回
+    update_ui_interface_data()
+    return props_dict["props"]

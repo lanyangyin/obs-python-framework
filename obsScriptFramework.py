@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from pathlib import Path
 
 file_path = Path(__file__)
@@ -12,7 +13,7 @@ config_folder = file_dir.joinpath(file_name)
 """脚本配置文件夹路径"""
 os.makedirs(config_folder, exist_ok=True)  # 新建脚本配置文件夹
 sys.path.insert(0, f'{config_folder}')
-import obspython as obs
+
 
 def script_defaults(settings):  # 设置其默认值
     """
@@ -86,3 +87,7 @@ def script_unload():
     在脚本被卸载时调用。
     """
     pass
+
+
+
+
