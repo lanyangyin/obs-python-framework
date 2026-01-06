@@ -272,3 +272,55 @@ def script_path():
         /Applications/OBS.app/Contents/PlugIns/frontend-tools.plugin/Contents/Resources/scripts/bilibili-live/config.json
     """
     return f"{Path(__file__).parent}\\"
+
+
+def obs_properties_add_text(Props, Name, Description, obs_text_type):
+    return None
+
+
+def obs_property_text_set_info_type(Obj, InfoType):
+    return None
+
+
+def obs_property_button_set_url(Obj, Url):
+    return None
+
+
+def obs_properties_add_list(Props, Name, Description, obs_combo_type, OBS_COMBO_FORMAT_STRING):
+    return None
+
+
+def OBS_COMBO_FORMAT_STRING():
+    return None
+
+
+def obs_property_list_insert_string(Obj, param, Text, Value):
+    return None
+
+
+def obs_property_list_add_string(Obj, item_label, item_value):
+    return None
+
+
+def obs_property_set_long_description(Obj, LongDescription):
+    return None
+
+
+def obs_properties_add_int_slider():
+    return None
+
+
+def obs_properties_add_int():
+    return None
+
+
+def obs_properties_add_float_slider():
+    return None
+
+
+def obs_properties_add_float():
+    return None
+
+
+def obs_property_int_set_suffix(Obj, Suffix):
+    return None

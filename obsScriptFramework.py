@@ -36,9 +36,10 @@ def script_defaults(settings):  # 设置其默认值
     # 包载入判断
     if not ImportSuccess[0]:
         return
-    obsScriptGlobalVariable.Log_manager = LogManager(script_config_folder / obsScriptGlobalVariable.log_folder_name)
     # 脚本设置体
     obsScriptGlobalVariable.settings = settings
+    # 日志管理器
+    obsScriptGlobalVariable.Log_manager = LogManager(script_config_folder / obsScriptGlobalVariable.log_folder_name)
     # 脚本介绍
     try:
         with open(script_config_folder.joinpath(obsScriptGlobalVariable.description_filename), encoding="utf-8") as f:

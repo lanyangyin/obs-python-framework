@@ -1,6 +1,6 @@
 from typing import Callable, Dict
 from obsScriptControlData import *
-from LogManager import *
+import obspython as obs
 
 # --- 2. 注册装饰器和注册表 ---
 _control_creator_registry: Dict[WidgetCategory, Callable] = {}
