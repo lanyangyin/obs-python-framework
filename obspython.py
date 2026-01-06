@@ -92,7 +92,7 @@ def obs_properties_add_button(props, name, text, callback):
     pass
 
 
-# class ControlType:
+# class WidgetCategory:
 # @staticmethod
 def obs_property_button_set_type(p, type) -> None:
     r"""

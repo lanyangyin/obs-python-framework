@@ -1,7 +1,7 @@
 
 import obspython as obs
 
-def button_function_start_script(*args):
+def button_function_top(*args):
     if len(args) == 2:
         props = args[0]
         prop = args[1]

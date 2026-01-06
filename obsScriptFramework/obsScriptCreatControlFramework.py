@@ -1,12 +1,11 @@
 from typing import Callable, Dict
 from obsScriptControlData import *
-from tool import *
-class ControlType(Enum):
-    CHECKBOX = "CheckBox"
-# --- 2. 注册装饰器和注册表 ---
-_control_creator_registry: Dict[ControlType, Callable] = {}
+from LogManager import *
 
-def creates(control_type: ControlType):
+# --- 2. 注册装饰器和注册表 ---
+_control_creator_registry: Dict[WidgetCategory, Callable] = {}
+
+def creates(control_type: WidgetCategory):
     """装饰器：自动注册控件创建函数到全局注册表"""
 
     def decorator(creator_func: Callable) -> Callable:
@@ -19,7 +18,7 @@ def creates(control_type: ControlType):
 
 # --- 3. 各控件的具体创建函数 ---
 
-@creates(ControlType.TEXTBOX)
+@creates(WidgetCategory.TEXTBOX)
 def _create_textbox(w) -> None:
     """
     创建文本框控件
@@ -36,7 +35,7 @@ def _create_textbox(w) -> None:
     if hasattr(w, 'InfoType') and obs_text_type == obs.OBS_TEXT_INFO:
         obs.obs_property_text_set_info_type(w.Obj, w.InfoType)
 
-@creates(ControlType.BUTTON)
+@creates(WidgetCategory.BUTTON)
 def _create_button(w) -> None:
     """
     创建按钮控件
@@ -56,7 +55,7 @@ def _create_button(w) -> None:
     if obs_button_type == obs.OBS_BUTTON_URL and hasattr(w, 'Url'):
         obs.obs_property_button_set_url(w.Obj, w.Url)
 
-@creates(ControlType.COMBOBOX)
+@creates(WidgetCategory.COMBOBOX)
 def _create_combobox(w) -> None:
     """
     创建组合框（下拉列表）控件
@@ -90,7 +89,7 @@ def _create_combobox(w) -> None:
             if item_label != getattr(w, 'Text', ""):
                 obs.obs_property_list_add_string(w.Obj, item_label, item_value)
 
-@creates(ControlType.PATHBOX)
+@creates(WidgetCategory.PATHBOX)
 def _create_pathbox(w) -> None:
     """
     创建路径选择框控件
@@ -114,7 +113,7 @@ def _create_pathbox(w) -> None:
         default_path
     )
 
-@creates(ControlType.GROUP)
+@creates(WidgetCategory.GROUP)
 def _create_group(w) -> None:
     """
     创建分组框控件
@@ -145,13 +144,13 @@ def _create_group(w) -> None:
         w.FoldingObj = obs.obs_properties_add_bool(w.Props, folding_name, folding_desc)
         log_save(obs.LOG_INFO, f"创建可勾选分组折叠控制: {folding_name}")
 
-@creates(ControlType.CHECKBOX)
+@creates(WidgetCategory.CHECKBOX)
 def _create_checkbox(w):
     """创建复选框控件"""
     log_save(obs.LOG_INFO, f"复选框控件: {w.Name} 【{w.Description}】")
     w.Obj = obs.obs_properties_add_bool(w.Props, w.Name, w.Description)
 
-@creates(ControlType.DIGITALBOX)
+@creates(WidgetCategory.DIGITALBOX)
 def _create_digitalbox(w):
     """创建数字输入或滑块控件"""
     log_save(obs.LOG_INFO, f"数字框控件: {w.Name} 【{w.Description}】")
@@ -167,7 +166,7 @@ def _create_digitalbox(w):
         obs.obs_property_int_set_suffix(w.Obj, w.Suffix)
 
 # --- 4. 辅助函数：获取创建器 ---
-def get_control_creator(control_type: ControlType):
+def get_control_creator(control_type: WidgetCategory):
     """根据控件类型字符串获取对应的创建函数"""
     try:
         return _control_creator_registry.get(control_type)
@@ -182,7 +181,7 @@ def _init_property_sets(widgets):
         props_dict[props_name] = obs.obs_properties_create()
     for w in widgets:
         w.Props = props_dict[w.PropsName]
-        if w.WidgetType == ControlType.GROUP:
+        if w.WidgetType == WidgetCategory.GROUP:
             w.GroupProps = props_dict[w.GroupPropsName]
     return props_dict
 
@@ -204,7 +203,7 @@ def _create_control_for_widget(w):
     # 4. 设置修改回调（根据条件）
     callback_conditions = [
         getattr(w, 'ModifiedIs', False),
-        (w.WidgetType == ControlType.GROUP and
+        (w.WidgetType == WidgetCategory.GROUP and
          getattr(w, 'Type', None) == obs.OBS_GROUP_CHECKABLE)
     ]
 
@@ -216,7 +215,7 @@ def _create_control_for_widget(w):
         )
 
         # 分组框的特殊折叠控件回调
-        if w.WidgetType == ControlType.GROUP and hasattr(w, 'FoldingObj'):
+        if w.WidgetType == WidgetCategory.GROUP and hasattr(w, 'FoldingObj'):
             obs.obs_property_set_modified_callback(
                 w.FoldingObj,
                 lambda ps, p, st, name=f"{w.Name}_folding": property_modified(name)

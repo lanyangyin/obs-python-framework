@@ -1,18 +1,31 @@
 import os
 import sys
-import time
 from pathlib import Path
+import obspython as obs
 
-file_path = Path(__file__)
+script_file_path = Path(__file__)
 """脚本文件路径"""
-file_dir = file_path.parent
+script_file_dir = script_file_path.parent
 """脚本所在文件夹路径"""
-file_name = file_path.stem
+script_file_name = script_file_path.stem
 """脚本无后缀名称"""
-config_folder = file_dir.joinpath(file_name)
+script_config_folder = script_file_dir.joinpath(script_file_name)
 """脚本配置文件夹路径"""
-os.makedirs(config_folder, exist_ok=True)  # 新建脚本配置文件夹
-sys.path.insert(0, f'{config_folder}')
+os.makedirs(script_config_folder, exist_ok=True)  # 新建脚本配置文件夹
+sys.path.insert(0, f'{script_config_folder}')  # 将脚本配置文件夹也加入环境用来导入包
+try:  # 导入脚本配置文件夹中的包
+    import obsScriptGlobalVariable
+    from LogManager import LogManager
+    ImportSuccess = (True, None)
+except ImportError as e:
+    ImportSuccess = (False, str(e.msg))
+    obs.script_log(obs.LOG_ERROR, str(e.msg))
+
+try:  # 开发测试用
+    from obsScriptFramework import obsScriptGlobalVariable
+    from obsScriptFramework.LogManager import LogManager
+except ImportError:
+    pass
 
 
 def script_defaults(settings):  # 设置其默认值
@@ -20,28 +33,28 @@ def script_defaults(settings):  # 设置其默认值
     调用以设置与脚本关联的默认设置(如果有的话)。为了设置其默认值，您通常会调用默认值函数。
     :param settings:与脚本关联的设置。
     """
-    pass
+    # 包载入判断
+    if not ImportSuccess[0]:
+        return
+    obsScriptGlobalVariable.Log_manager = LogManager(script_config_folder / obsScriptGlobalVariable.log_folder_name)
+    # 脚本设置体
+    obsScriptGlobalVariable.settings = settings
+    # 脚本介绍
+    try:
+        with open(script_config_folder.joinpath(obsScriptGlobalVariable.description_filename), encoding="utf-8") as f:
+            obsScriptGlobalVariable.description = f.read()
+    except FileNotFoundError as e:
+        obsScriptGlobalVariable.description = str(e)
 
 
 def script_description():
     """
     调用以检索要在“脚本”窗口中显示给用户的描述字符串。
     """
-    pass
-    return f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-</head>
-<body style="margin:0; padding:12px; background-color:#2b2b2b; color:#e0e0e0; font-family:'Microsoft YaHei', sans-serif; display:flex; justify-content:center; align-items:center; height:100vh;">
-<div style="display:flex; align-items:center; background-color:rgba(255,193,7,0.1); border:1px solid rgba(255,193,7,0.3); padding:12px 20px; max-width:300px;">
-    <div style="font-size:20px; color:#ffc107; margin-right:12px;">🚀</div>
-    <div style="color:#ffc107; font-weight:600; font-size:16px;">script_properties</div>
-</div>
-</body>
-</html>
-"""
+    # 包载入判断
+    if not ImportSuccess[0]:
+        return ImportSuccess[1]
+    return obsScriptGlobalVariable.description
 
 
 def script_load(settings):
@@ -50,6 +63,10 @@ def script_load(settings):
     相反，该参数用于脚本中可能使用的任何额外的内部设置数据。
     :param settings:与脚本关联的设置。
     """
+    # 包载入判断
+    if not ImportSuccess[0]:
+        return
+    obsScriptGlobalVariable.Log_manager.log_info(f"{script_file_name} 加载成功")
     pass
 
 
@@ -60,11 +77,18 @@ def script_update(settings):
     不要在这里控制控件的【可见】、【可用】、【值】和【名称】
     :param settings:与脚本关联的设置。
     """
+    # 包载入判断
+    if not ImportSuccess[0]:
+        return
     pass
 
 
 def script_properties():
     """主属性创建函数"""
+    # 包载入判断
+    if not ImportSuccess[0]:
+        return
+    obsScriptGlobalVariable.Log_manager.log_info(f"生成控件")
     pass
 
 
@@ -79,6 +103,9 @@ def script_tick(seconds):
     Returns:
 
     """
+    # 包载入判断
+    if not ImportSuccess[0]:
+        return
     pass
 
 
@@ -86,6 +113,10 @@ def script_unload():
     """
     在脚本被卸载时调用。
     """
+    # 包载入判断
+    if not ImportSuccess[0]:
+        return
+    obsScriptGlobalVariable.Log_manager.flush()
     pass
 
 
