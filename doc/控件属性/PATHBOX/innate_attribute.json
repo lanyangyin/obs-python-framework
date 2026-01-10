@@ -1,0 +1,13 @@
+{
+  "widget_category": "PATHBOX",
+  "props_name": "props",
+  "object_name": "",
+  "control_name": "",
+  "description": "",
+  "long_description": "",
+  "widget_variant": "FILE",
+  "modified_callback_enabled": false,
+
+  "filter_str": "*.*",
+  "default_path": ""
+}

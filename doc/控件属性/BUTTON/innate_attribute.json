@@ -1,0 +1,13 @@
+{
+  "widget_category": "BUTTON",
+  "props_name": "props",
+  "object_name": "",
+  "control_name": "",
+  "description": "",
+  "long_description": "",
+  "widget_variant": "DEFAULT",
+  "modified_callback_enabled": false,
+
+  "callback": null,
+  "url": ""
+}

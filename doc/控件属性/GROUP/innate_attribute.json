@@ -1,0 +1,12 @@
+{
+  "widget_category": "GROUP",
+  "props_name": "props",
+  "object_name": "",
+  "control_name": "",
+  "description": "",
+  "long_description": "",
+  "widget_variant": "NORMAL",
+  "modified_callback_enabled": false,
+
+  "group_props_name": "GroupProps"
+}

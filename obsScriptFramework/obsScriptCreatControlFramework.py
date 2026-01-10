@@ -1,5 +1,5 @@
 from typing import Callable, Dict
-from obsScriptControlData import *
+from obsScriptFramework.src.data.obsScriptControlData import *
 import obspython as obs
 
 # --- 2. 注册装饰器和注册表 ---

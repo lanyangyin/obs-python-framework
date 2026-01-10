@@ -1,0 +1,12 @@
+{
+  "widget_category": "DIGITALBOX",
+  "props_name": "props",
+  "object_name": "",
+  "control_name": "",
+  "description": "",
+  "long_description": "",
+  "widget_variant": "INT",
+  "modified_callback_enabled": false,
+
+  "suffix": ""
+}

@@ -3,8 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Union
 
-import ExplanatoryDictionary
-import obsScriptGlobalVariable
+from ..data import ExplanatoryDictionary
+from ..data import obsScriptGlobalVariable
 import obspython as obs
 import traceback
 

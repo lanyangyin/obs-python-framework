@@ -1,3 +1,4 @@
+"""控件后台属性默认模版"""
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal, Any, Union, Optional, Callable, Dict, List
@@ -208,6 +209,8 @@ class ControlBaseData:
     """📵🥚控件在 OBS API 中的功能类型 (如 OBS_TEXT_DEFAULT)。"""
     modified_callback_enabled: bool = False
     """📵🥚该控件的值变化时是否触发修改回调函数。"""
+    modified_callback: Callable = None
+    """📵🥚该控件的值变化时是否触发修改回调函数。"""
     load_order: int = 0
     """📵控件的加载顺序，数值越小越靠前。"""
     props: Any = None
@@ -271,7 +274,7 @@ class ButtonData(ControlBaseData):
     callback: Optional[Callable[[Any, Any], bool]] = None
     """📵🥚按钮被点击时触发的回调函数。"""
     url: str = ""
-    """📵🥚仅当 widget_variant 为 OBS_BUTTON_URL 时有效的跳转链接。"""
+    """📵仅当 widget_variant 为 OBS_BUTTON_URL 时有效的跳转链接。"""
 
 
 @dataclass
@@ -339,7 +342,7 @@ class ColorBoxData(ControlBaseData):
 
     @property
     def color_value(self) -> int:
-        """当前颜色值（ARGB格式的整数）。"""
+        """📵当前颜色值（ARGB格式的整数）。"""
         bgr = (self.color_blue * 0x10000) + (self.color_green * 0x100) + self.color_red
         if self.widget_variant == ColorBoxVariant.ALPHA:
             return (self.color_alpha * 0x1000000) + bgr
@@ -373,7 +376,7 @@ class FontBoxData(ControlBaseData):
 
     @property
     def font_flags(self):
-        """字体标志位"""
+        """📵字体标志位"""
         font_bold = 1 if self.font_bold else 0
         font_italic = 1 if self.font_italic else 0
         font_underline = 1 if self.font_underline else 0
@@ -390,8 +393,8 @@ class PathBoxData(ControlBaseData):
     """📵🥚OBS 路径框类型常量。"""
     default_path: str = ""
     """📵🥚对话框打开时的初始路径。"""
+    filter_str: str = "*.*"  # 避免与内置函数 `filter` 冲突
+    """📵🥚文件对话框的文件类型过滤器 (如 '*.png;*.jpg')。"""
     path_text: str = ""  # 明确这是路径文本
     """当前显示或选中的路径字符串。"""
-    filter_str: str = "*.*"  # 避免与内置函数 `filter` 冲突
-    """文件对话框的文件类型过滤器 (如 '*.png;*.jpg')。"""
 

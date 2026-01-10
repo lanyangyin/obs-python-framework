@@ -14,8 +14,8 @@ script_config_folder = script_file_dir.joinpath(script_file_name)
 os.makedirs(script_config_folder, exist_ok=True)  # 新建脚本配置文件夹
 sys.path.insert(0, f'{script_config_folder}')  # 将脚本配置文件夹也加入环境用来导入包
 try:  # 导入脚本配置文件夹中的包
-    import obsScriptGlobalVariable
-    from LogManager import LogManager
+    from src.data import obsScriptGlobalVariable
+    from src.tool.LogManager import LogManager
     ImportSuccess = (True, None)
 except ImportError as e:
     ImportSuccess = (False, str(e.msg))
@@ -23,7 +23,7 @@ except ImportError as e:
 
 try:  # 开发测试用
     from obsScriptFramework import obsScriptGlobalVariable
-    from obsScriptFramework.LogManager import LogManager
+    from obsScriptFramework.src.tool.LogManager import LogManager
 except ImportError:
     pass
 

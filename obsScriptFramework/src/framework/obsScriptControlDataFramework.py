@@ -1,6 +1,6 @@
 from collections import OrderedDict as PyOrderedDict
 from typing import Set
-from obsScriptControlData import *
+from ..data.obsScriptControlData import *
 
 # 控件管理
 # ----------------------------------------------------------------------------------------------------------------

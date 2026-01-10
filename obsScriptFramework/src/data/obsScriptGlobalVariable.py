@@ -5,6 +5,7 @@ version: str = "1.0.0"
 """脚本版本号"""
 settings: Any = None
 """脚本设置体"""
+
 description_filename: str = "obsScriptDescription.html"
 """脚本介绍文件名称"""
 description: str = ""
