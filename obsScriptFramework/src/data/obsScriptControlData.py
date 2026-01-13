@@ -274,7 +274,7 @@ class ButtonData(ControlBaseData):
     callback: Optional[Callable[[Any, Any], bool]] = None
     """📵🥚按钮被点击时触发的回调函数。"""
     url: str = ""
-    """📵仅当 widget_variant 为 OBS_BUTTON_URL 时有效的跳转链接。"""
+    """📵🥚仅当 widget_variant 为 OBS_BUTTON_URL 时有效的跳转链接。"""
 
 
 @dataclass
@@ -363,7 +363,9 @@ class FontBoxData(ControlBaseData):
     """字体系列名称"""
     font_size: int = 36
     """字体大小"""
-    font_style: Literal["Regular", "Bold", "Light", "Black"] = "Regular"
+    font_style: Literal[
+        "Regular", "Bold", "Light", "Black"
+    ] = "Regular"
     """字体样式 Regular, Bold, Light, Black"""
     font_bold: bool = False
     """字体标志位 粗体。"""
