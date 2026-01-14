@@ -1,19 +1,24 @@
 import csv
 import json
 import os
-from csv import excel
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict
 
 
 class ControlTemplateParser:
     def __init__(self):
+        """初始化控件模板解析器"""
         self.templates = {}  # 存储每种控件的模板
         self.group_boundaries = []  # 存储分组的边界索引
+        self.group_props_name_col_idx = None  # group_props_name列索引
 
-    def parse_csv(self, csv_path: str) -> Dict[str, Any]:
-        """解析CSV文件，提取模板并解析数据"""
-
+    def parse_csv(self, csv_path: str, initial_props_name: str = "default_props") -> Dict[str, Any]:
+        """
+        解析CSV文件，提取模板并解析数据
+        :param csv_path:
+        :param initial_props_name: 默认的props名称，用于第0层控件
+        :return:
+        """
         # 读取CSV文件
         with open(csv_path, 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
@@ -27,6 +32,13 @@ class ControlTemplateParser:
 
         # 检测分组边界
         self._detect_group_boundaries(headers)
+
+        # 找到group_props_name列的索引
+        self.group_props_name_col_idx = None
+        for i, header in enumerate(headers):
+            if header == 'group_props_name':
+                self.group_props_name_col_idx = i
+                break
 
         # 解析模板行
         template_rows = []
@@ -43,16 +55,14 @@ class ControlTemplateParser:
         data_start_idx = len(template_rows) + 2  # 跳过标题和模板行
         data_rows = rows[data_start_idx:]
 
-        # 解析数据
-        controls = self._parse_data_rows(headers, data_rows)
-
-        # 构建层次结构
-        tree = self._build_hierarchy(controls)
+        # 解析数据并构建层次结构
+        root_controls, all_controls = self._parse_data_rows_with_props(headers, data_rows, initial_props_name)
 
         return {
             "templates": self.templates,
-            "controls": controls,
-            "tree": tree
+            "all_controls": all_controls,
+            "tree": root_controls,
+            "initial_props_name": initial_props_name
         }
 
     def _detect_group_boundaries(self, headers: List[str]) -> None:
@@ -110,9 +120,20 @@ class ControlTemplateParser:
                 return i
         return -1
 
-    def _parse_data_rows(self, headers: List[str], rows: List[List[str]]) -> List[Dict[str, Any]]:
-        """解析数据行"""
-        controls = []
+    def _parse_data_rows_with_props(self, headers: List[str], rows: List[List[str]], initial_props_name) -> Tuple[
+        List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        解析数据行，并处理props_name层级关系
+
+        Returns:
+            tuple: (根控件列表, 所有控件列表)
+        """
+        all_controls = []
+
+        # 栈用于追踪层级和group_props_name
+        # 每个栈元素: (level, props_name, node)
+        stack = []
+        root_controls = []
 
         for row in rows:
             if not any(row):  # 跳过空行
@@ -128,10 +149,36 @@ class ControlTemplateParser:
                 level += 1
                 object_name = object_name[1:]
 
+            # 获取group_props_name（如果有的话）
+            group_props_name = None
+            if self.group_props_name_col_idx is not None and self.group_props_name_col_idx < len(row):
+                group_props_name_value = row[self.group_props_name_col_idx].strip()
+                if group_props_name_value and group_props_name_value != 'X':
+                    # 处理带引号的字符串
+                    if group_props_name_value.startswith('"') and group_props_name_value.endswith('"'):
+                        group_props_name = group_props_name_value[1:-1].replace('""', '"')
+                    else:
+                        group_props_name = group_props_name_value
+
+            # 确定当前的props_name
+            current_props_name = initial_props_name  # 默认值
+
+            # 查找父级的group_props_name
+            if stack:
+                # 找到当前层级最近的父级
+                for stack_level, stack_props_name, stack_node in reversed(stack):
+                    if stack_level < level:
+                        # 如果父级是GROUP控件，使用父级的group_props_name
+                        if stack_node.get('widget_category') == 'GROUP' and stack_node.get('group_props_name'):
+                            current_props_name = stack_node['group_props_name']
+                        else:
+                            current_props_name = stack_node.get('props_name', initial_props_name)
+                        break
+
             # 获取模板
             if widget_type not in self.templates:
                 raise TypeError(f"Warning: No template for widget type {widget_type}")
-                continue
+                # continue
 
             template = self.templates[widget_type]
 
@@ -141,8 +188,11 @@ class ControlTemplateParser:
                 "original_name": original_name,
                 "level": level,
                 "widget_category": widget_type,
+                "props_name": current_props_name,  # 添加props_name属性
+                "group_props_name": group_props_name,  # 存储自身的group_props_name
                 "properties": {},
-                "group_properties": defaultdict(dict)
+                "group_properties": defaultdict(dict),
+                "children": []
             }
 
             # 根据模板解析属性
@@ -175,9 +225,25 @@ class ControlTemplateParser:
                     group_key = f"group_{group_idx}"
                     control["group_properties"][group_key][header] = processed_value
 
-            controls.append(control)
+            # 添加到层级结构
+            all_controls.append(control)
 
-        return controls
+            # 处理层级关系
+            # 弹出栈顶元素直到找到父级
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+
+            # 添加到父级或根节点
+            if stack:
+                parent_node = stack[-1][2]
+                parent_node["children"].append(control)
+            else:
+                root_controls.append(control)
+
+            # 将当前控件压入栈
+            stack.append((level, current_props_name, control))
+
+        return root_controls, all_controls
 
     def _parse_value(self, value: str) -> Any:
         """解析字符串值为合适的数据类型"""
@@ -212,41 +278,15 @@ class ControlTemplateParser:
             except json.JSONDecodeError:
                 pass
 
+        # 字典（JSON格式）
+        if value.startswith('{') and value.endswith('}'):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                pass
+
         # 默认返回字符串
         return value
-
-    def _build_hierarchy(self, controls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """根据缩进级别构建层次结构"""
-
-        if not controls:
-            return []
-
-        # 按原始顺序构建树
-        root_controls = []
-        stack = []  # 用于追踪父节点
-
-        for control in controls:
-            level = control["level"]
-
-            # 调整栈以匹配当前层级
-            while len(stack) > level:
-                stack.pop()
-
-            # 设置父节点
-            if stack:
-                parent = stack[-1]
-                if "children" not in parent:
-                    parent["children"] = []
-                parent["children"].append(control)
-            else:
-                root_controls.append(control)
-
-            # 如果有子节点，压入栈
-            if "children" not in control:
-                control["children"] = []
-            stack.append(control)
-
-        return root_controls
 
     def export_to_json(self, data: Dict[str, Any], output_path: Optional[str] = None) -> str:
         """导出为JSON"""
@@ -259,43 +299,78 @@ class ControlTemplateParser:
 
         return json_str
 
+    def generate_summary_report(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """生成摘要报告"""
+
+        all_controls = data.get('all_controls', [])
+
+        # 统计信息
+        control_count_by_type = defaultdict(int)
+        props_name_groups = defaultdict(list)
+
+        for control in all_controls:
+            widget_type = control.get('widget_category', 'UNKNOWN')
+            props_name = control.get('props_name', 'UNKNOWN')
+
+            control_count_by_type[widget_type] += 1
+            props_name_groups[props_name].append({
+                "name": control.get('object_name'),
+                "type": widget_type,
+                "level": control.get('level', 0)
+            })
+
+        return {
+            "total_controls": len(all_controls),
+            "control_types": dict(control_count_by_type),
+            "props_name_groups": {
+                props_name: {
+                    "count": len(controls),
+                    "controls": controls[:5]  # 只显示前5个
+                }
+                for props_name, controls in props_name_groups.items()
+            }
+        }
+
 
 # 使用示例
 if __name__ == "__main__":
+    # 使用默认的props_name
     parser = ControlTemplateParser()
 
     # 解析CSV文件
     csv_path = "../../testData.csv"
-    result = parser.parse_csv(csv_path)
+    result = parser.parse_csv(csv_path, initial_props_name="props")
 
     # 导出为JSON
-    json_output = parser.export_to_json(result, "parsed_controls.json")
+    json_output = parser.export_to_json(result, "parsed_controls_with_props.json")
 
-    # 打印摘要信息
-    print("=" * 60)
-    print(f"解析完成！")
-    print(f"找到 {len(result['templates'])} 种控件模板:")
-    for widget_type in result['templates'].keys():
-        print(f"  - {widget_type}")
-
-    print(f"\n解析了 {len(result['controls'])} 个控件")
-    print(f"构建了 {len(result['tree'])} 个根节点")
+    # 生成摘要报告
+    summary = parser.generate_summary_report(result)
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
-    # 打印树形结构
-    def print_tree(nodes, indent=0):
+    # 打印树形结构，显示props_name
+    def print_tree_with_props(nodes, indent=0):
         for node in nodes:
             prefix = "  " * indent
             level = node.get('level', 0)
             widget_type = node.get('widget_category', 'UNKNOWN')
             name = node.get('object_name', '')
-            print(f"{prefix}→" * level + f"{name} ({widget_type})")
+            props_name = node.get('props_name', '')
+            group_props_name = node.get('group_props_name', '')
+
+            # 构建显示字符串
+            display_str = f"{prefix}→" * level + f"{name} ({widget_type})"
+            if props_name:
+                display_str += f" [props: {props_name}]"
+            if group_props_name:
+                display_str += f" [group: {group_props_name}]"
+
+            print(display_str)
 
             if 'children' in node and node['children']:
-                print_tree(node['children'], indent + 1)
+                print_tree_with_props(node['children'], indent + 1)
 
 
-    print("\n控件树形结构:")
-    print_tree(result['tree'])
-
-    print("\n完整JSON已保存到 parsed_controls.json")
+    print("\n控件树形结构（显示props_name）:")
+    print_tree_with_props(result['tree'])
