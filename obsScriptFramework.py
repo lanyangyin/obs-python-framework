@@ -41,7 +41,7 @@ def script_defaults(settings):  # 设置其默认值
     # 日志管理器
     ObsScriptGlobalVariable.Log_manager = LogManager(script_config_folder / ObsScriptGlobalVariable.log_folder_name)
 
-PlugIns
+
 
 def script_description():
     """
