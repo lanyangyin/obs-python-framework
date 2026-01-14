@@ -334,7 +334,6 @@ class ControlTemplateParser:
 
 # 使用示例
 if __name__ == "__main__":
-    # 使用默认的props_name
     parser = ControlTemplateParser()
 
     # 解析CSV文件
