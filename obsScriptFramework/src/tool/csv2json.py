@@ -1,165 +1,195 @@
 import csv
 import json
-import re
+import os
+from csv import excel
 from typing import Dict, List, Any, Optional
+from collections import defaultdict
 
 
-class WidgetCSVParser:
-    def __init__(self, csv_path: str):
-        self.csv_path = csv_path
-        self.templates = {}  # 控件类型模板
-        self.widgets = []  # 所有控件（扁平列表）
-        self.groups = {}  # 按object_name索引的GROUP控件
+class ControlTemplateParser:
+    def __init__(self):
+        self.templates = {}  # 存储每种控件的模板
+        self.group_boundaries = []  # 存储分组的边界索引
 
-    def parse(self):
-        """解析CSV文件"""
-        with open(self.csv_path, 'r', encoding='utf-8') as file:
-            reader = csv.reader(file)
+    def parse_csv(self, csv_path: str) -> Dict[str, Any]:
+        """解析CSV文件，提取模板并解析数据"""
+
+        # 读取CSV文件
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
             rows = list(reader)
 
         if not rows:
-            raise ValueError("CSV文件为空")
+            return {"error": "Empty CSV file"}
 
-        # 表头
-        header = rows[0]
+        # 解析列标题
+        headers = rows[0]
 
-        # 识别列索引
-        col_indices = self._analyze_columns(header, rows)
+        # 检测分组边界
+        self._detect_group_boundaries(headers)
 
         # 解析模板行
-        template_row_idx = 1  # 假设模板从第2行开始
-        while template_row_idx < len(rows) and rows[template_row_idx][0] == '-':
-            self._parse_template(rows[template_row_idx], col_indices)
-            template_row_idx += 1
+        template_rows = []
+        for row in rows[1:]:
+            if not any(row):  # 空行，模板部分结束
+                break
+            if row[0] == '-':  # 模板行
+                template_rows.append(row)
 
-        # 跳过空行
-        while template_row_idx < len(rows) and not rows[template_row_idx][0]:
-            template_row_idx += 1
+        # 构建模板
+        self._build_templates(headers, template_rows)
 
-        # 解析数据行
-        for i in range(template_row_idx, len(rows)):
-            if rows[i] and rows[i][0]:
-                self._parse_data_row(rows[i], col_indices)
+        # 解析数据行（从模板行之后开始）
+        data_start_idx = len(template_rows) + 2  # 跳过标题和模板行
+        data_rows = rows[data_start_idx:]
 
-    def _analyze_columns(self, header: List[str], rows: List[List[str]]) -> Dict[str, int]:
-        """分析列结构，返回列名到索引的映射"""
-        col_indices = {}
+        # 解析数据
+        controls = self._parse_data_rows(headers, data_rows)
 
-        for i, col_name in enumerate(header):
-            if col_name:  # 跳过空列名
-                col_indices[col_name] = i
+        # 构建层次结构
+        tree = self._build_hierarchy(controls)
 
-        # 验证关键列是否存在
-        required_cols = ['object_name', 'widget_category']
-        for col in required_cols:
-            if col not in col_indices:
-                raise ValueError(f"缺少必需列: {col}")
-
-        return col_indices
-
-    def _parse_template(self, row: List[str], col_indices: Dict[str, int]):
-        """解析模板行"""
-        widget_type = row[col_indices['widget_category']]
-
-        if not widget_type or widget_type == '-':
-            return
-
-        template = {}
-
-        # 解析每个属性组
-        for col_name, col_idx in col_indices.items():
-            if col_idx < len(row):
-                value = row[col_idx]
-                if value == 'O':
-                    template[col_name] = True  # 有这个属性
-                elif value == 'X':
-                    template[col_name] = False  # 没有这个属性
-                elif value == '|' or value == '||':
-                    template[col_name] = 'separator'  # 分隔符
-
-        self.templates[widget_type] = template
-
-    def _parse_data_row(self, row: List[str], col_indices: Dict[str, int]):
-        """解析数据行"""
-        # 解析object_name和层级
-        raw_name = row[col_indices['object_name']]
-        level = 0
-        clean_name = raw_name
-
-        if raw_name.startswith('→'):
-            arrow_count = 0
-            while arrow_count < len(raw_name) and raw_name[arrow_count] == '→':
-                arrow_count += 1
-            level = arrow_count
-            clean_name = raw_name[arrow_count:].strip()
-
-        widget_type = row[col_indices['widget_category']]
-
-        # 创建控件对象
-        widget = {
-            'object_name': clean_name,
-            'widget_category': widget_type,
-            'level': level,
-            'attributes': {}
+        return {
+            "templates": self.templates,
+            "controls": controls,
+            "tree": tree
         }
 
-        # 获取该类型的模板
-        template = self.templates.get(widget_type, {})
+    def _detect_group_boundaries(self, headers: List[str]) -> None:
+        """检测分组边界"""
+        boundaries = [0]  # 从第一列开始
 
-        # 解析所有属性
-        for col_name, col_idx in col_indices.items():
-            if col_idx >= len(row):
+        for i, header in enumerate(headers):
+            if header == '|':
+                boundaries.append(i + 1)  # 下一个分组开始
+            elif header == '||':
+                boundaries.append(i)  # 二级分组，不从||开始
+
+        boundaries.append(len(headers))  # 结束边界
+        self.group_boundaries = boundaries
+
+    def _build_templates(self, headers: List[str], template_rows: List[List[str]]) -> None:
+        """构建控件模板"""
+
+        for row in template_rows:
+            widget_type = row[1]  # widget_category
+
+            # 初始化模板
+            template = {
+                "required_fields": [],
+                "optional_fields": [],
+                "field_info": {}  # 存储每个字段的详细信息
+            }
+
+            # 解析每个字段
+            for i, (header, value) in enumerate(zip(headers, row)):
+                if not header or header in ['|', '||']:
+                    continue
+
+                if value == 'O':
+                    template["required_fields"].append(header)
+                elif value == 'X':
+                    continue  # 不包含在模板中
+
+                # 存储字段在哪个分组
+                group_idx = self._find_group_index(i)
+                template["field_info"][header] = {
+                    "group": group_idx,
+                    "index": i,
+                    "required": value == 'O'
+                }
+
+            self.templates[widget_type] = template
+
+    def _find_group_index(self, col_index: int) -> int:
+        """查找列属于哪个分组"""
+        for i in range(len(self.group_boundaries) - 1):
+            start = self.group_boundaries[i]
+            end = self.group_boundaries[i + 1]
+            if start <= col_index < end:
+                return i
+        return -1
+
+    def _parse_data_rows(self, headers: List[str], rows: List[List[str]]) -> List[Dict[str, Any]]:
+        """解析数据行"""
+        controls = []
+
+        for row in rows:
+            if not any(row):  # 跳过空行
                 continue
 
-            value = row[col_idx]
+            object_name = row[0].strip()
+            widget_type = row[1]  # widget_category
 
-            # 根据模板决定是否包含这个属性
-            if col_name in template:
-                if template[col_name] is True:  # 模板标记为O，有这个属性
-                    parsed_value = self._parse_cell_value(value)
-                    if parsed_value is not None:
-                        widget['attributes'][col_name] = parsed_value
-                # 模板标记为False或separator的属性跳过
-            else:
-                # 没有模板信息，但列有值
-                parsed_value = self._parse_cell_value(value)
-                if parsed_value is not None:
-                    widget['attributes'][col_name] = parsed_value
+            # 计算缩进级别
+            level = 0
+            original_name = object_name
+            while object_name.startswith('→'):
+                level += 1
+                object_name = object_name[1:]
 
-        # 特殊处理：GROUP类型的控件
-        if widget_type == 'GROUP':
-            widget['children'] = []  # 只有GROUP有children
-            self.groups[clean_name] = widget
+            # 获取模板
+            if widget_type not in self.templates:
+                raise TypeError(f"Warning: No template for widget type {widget_type}")
+                continue
 
-        self.widgets.append(widget)
+            template = self.templates[widget_type]
 
-    def _parse_cell_value(self, value: str) -> Any:
-        """解析单元格值，区分null和空字符串"""
-        if not value:  # 空单元格
+            # 构建控件数据
+            control = {
+                "object_name": object_name,
+                "original_name": original_name,
+                "level": level,
+                "widget_category": widget_type,
+                "properties": {},
+                "group_properties": defaultdict(dict)
+            }
+
+            # 根据模板解析属性
+            for header, info in template["field_info"].items():
+                col_index = info["index"]
+                if col_index >= len(row):
+                    continue
+
+                value = row[col_index].strip()
+
+                # 处理特殊值
+                if value == 'X':
+                    continue  # 跳过不需要的属性
+
+                # 处理空值和空字符串
+                if not value:
+                    processed_value = None  # 空单元格为 null
+                elif value.startswith('"') and value.endswith('"'):
+                    # 处理带引号的字符串
+                    processed_value = value[1:-1].replace('""', '"')
+                else:
+                    # 尝试解析其他类型
+                    processed_value = self._parse_value(value)
+
+                # 根据分组存储属性
+                group_idx = info["group"]
+                if group_idx == 0:  # 基本属性组
+                    control["properties"][header] = processed_value
+                else:
+                    group_key = f"group_{group_idx}"
+                    control["group_properties"][group_key][header] = processed_value
+
+            controls.append(control)
+
+        return controls
+
+    def _parse_value(self, value: str) -> Any:
+        """解析字符串值为合适的数据类型"""
+
+        if not value or value == 'null':
             return None
 
-        if value == '""':  # 空字符串
-            return ""
+        # 布尔值
+        if value.lower() in ['true', 'false']:
+            return value.lower() == 'true'
 
-        if value.upper() == 'X':
-            return None
-
-        if value.upper() == 'O':
-            return None
-
-        # 处理带引号的字符串
-        if value.startswith('"') and value.endswith('"'):
-            unquoted = value[1:-1]
-            # 检查是否是JSON
-            if (unquoted.startswith('[') and unquoted.endswith(']')) or \
-                    (unquoted.startswith('{') and unquoted.endswith('}')):
-                try:
-                    return json.loads(unquoted)
-                except:
-                    return unquoted
-            return unquoted
-
-        # 处理数字
+        # 数字
         try:
             if '.' in value:
                 return float(value)
@@ -168,194 +198,104 @@ class WidgetCSVParser:
         except ValueError:
             pass
 
-        # 处理布尔值
-        if value.lower() == 'true':
-            return True
-        if value.lower() == 'false':
-            return False
+        # 十六进制颜色值
+        if value.startswith('0x'):
+            try:
+                return int(value, 16)
+            except ValueError:
+                pass
 
+        # 数组（JSON格式）
+        if value.startswith('[') and value.endswith(']'):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                pass
+
+        # 默认返回字符串
         return value
 
-    def build_hierarchy(self) -> List[Dict]:
-        """构建控件层级关系（只有GROUP可以有children）"""
-        # 首先，找到所有根节点（level=0）
-        root_widgets = [w for w in self.widgets if w['level'] == 0]
+    def _build_hierarchy(self, controls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """根据缩进级别构建层次结构"""
 
-        # 按level分组，便于查找
-        widgets_by_level = {}
-        for widget in self.widgets:
-            level = widget['level']
-            widgets_by_level.setdefault(level, []).append(widget)
+        if not controls:
+            return []
 
-        # 构建层级关系
-        for level in sorted(widgets_by_level.keys(), reverse=True):
-            if level == 0:
-                continue  # 根节点没有父节点
+        # 按原始顺序构建树
+        root_controls = []
+        stack = []  # 用于追踪父节点
 
-            current_widgets = widgets_by_level[level]
-            parent_widgets = widgets_by_level.get(level - 1, [])
+        for control in controls:
+            level = control["level"]
 
-            # 为每个当前层级的控件找父GROUP
-            for widget in current_widgets:
-                # 查找前一个层级的GROUP作为父节点
-                parent_found = False
-                for parent in reversed(parent_widgets):
-                    if parent['widget_category'] == 'GROUP':
-                        # 添加到父GROUP的children
-                        parent.setdefault('children', []).append(widget)
-                        parent_found = True
-                        break
+            # 调整栈以匹配当前层级
+            while len(stack) > level:
+                stack.pop()
 
-                if not parent_found:
-                    # 如果没有找到GROUP父节点，添加到最近的根节点
-                    for root in root_widgets:
-                        if root['widget_category'] == 'GROUP':
-                            root.setdefault('children', []).append(widget)
-                            break
+            # 设置父节点
+            if stack:
+                parent = stack[-1]
+                if "children" not in parent:
+                    parent["children"] = []
+                parent["children"].append(control)
+            else:
+                root_controls.append(control)
 
-        return root_widgets
+            # 如果有子节点，压入栈
+            if "children" not in control:
+                control["children"] = []
+            stack.append(control)
 
-    def find_parent_group(self, widget: Dict, all_widgets: List[Dict]) -> Optional[Dict]:
-        """查找控件的父GROUP"""
-        if widget['level'] == 0:
-            return None
+        return root_controls
 
-        # 查找上一个层级的GROUP
-        target_level = widget['level'] - 1
-
-        # 从当前widget往前找
-        widget_index = all_widgets.index(widget)
-
-        for i in range(widget_index - 1, -1, -1):
-            candidate = all_widgets[i]
-            if candidate['level'] == target_level and candidate['widget_category'] == 'GROUP':
-                return candidate
-
-        return None
-
-    def export_to_json(self, output_path: str):
+    def export_to_json(self, data: Dict[str, Any], output_path: Optional[str] = None) -> str:
         """导出为JSON"""
-        hierarchy = self.build_hierarchy()
 
-        result = {
-            'templates': self.templates,
-            'widgets': self.widgets,  # 扁平列表
-            'hierarchy': hierarchy  # 层级结构
-        }
+        json_str = json.dumps(data, ensure_ascii=False, indent=2, default=str)
 
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(result, f, ensure_ascii=False, indent=2, default=str)
+        if output_path:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(json_str)
 
-    def get_statistics(self) -> Dict:
-        """获取统计信息"""
-        stats = {
-            'total_widgets': len(self.widgets),
-            'by_type': {},
-            'groups': len([w for w in self.widgets if w['widget_category'] == 'GROUP']),
-            'max_level': max([w['level'] for w in self.widgets]) if self.widgets else 0
-        }
-
-        # 按类型统计
-        for widget in self.widgets:
-            widget_type = widget['widget_category']
-            stats['by_type'][widget_type] = stats['by_type'].get(widget_type, 0) + 1
-
-        return stats
-
-    def find_widgets_by_type(self, widget_type: str) -> List[Dict]:
-        """查找指定类型的控件"""
-        return [w for w in self.widgets if w['widget_category'] == widget_type]
-
-    def get_widget_tree(self, include_attributes: bool = False) -> List[Dict]:
-        """获取树形结构的控件（便于显示）"""
-
-        def build_tree_node(widget: Dict) -> Dict:
-            node = {
-                'name': widget['object_name'],
-                'type': widget['widget_category'],
-                'level': widget['level']
-            }
-
-            if include_attributes:
-                node['attributes'] = widget.get('attributes', {})
-
-            if widget['widget_category'] == 'GROUP' and 'children' in widget:
-                node['children'] = [build_tree_node(child) for child in widget['children']]
-
-            return node
-
-        hierarchy = self.build_hierarchy()
-        return [build_tree_node(widget) for widget in hierarchy]
+        return json_str
 
 
-def visualize_widget_tree(widget_tree: List[Dict], max_depth: int = 10):
-    """可视化控件树"""
+# 使用示例
+if __name__ == "__main__":
+    parser = ControlTemplateParser()
 
-    def print_node(node: Dict, depth: int = 0, is_last: bool = True, prefix: str = ""):
-        if depth > max_depth:
-            return
-
-        # 计算当前节点的前缀
-        connector = "└── " if is_last else "├── "
-        type_symbol = "📁" if node['type'] == 'GROUP' else "📄"
-
-        print(f"{prefix}{connector}{type_symbol} {node['name']} ({node['type']})")
-
-        # 更新前缀用于子节点
-        new_prefix = prefix + ("    " if is_last else "│   ")
-
-        # 递归打印子节点
-        if node.get('children'):
-            for i, child in enumerate(node['children']):
-                is_last_child = i == len(node['children']) - 1
-                print_node(child, depth + 1, is_last_child, new_prefix)
-
-    print("控件层级结构:")
-    print("=" * 60)
-
-    for i, root in enumerate(widget_tree):
-        is_last_root = i == len(widget_tree) - 1
-        print_node(root, is_last=is_last_root)
-
-if __name__ == '__main__':
-
-    # 使用解析器
-    parser = WidgetCSVParser("../../testData.csv")
-    parser.parse()
-
-    # 获取统计信息
-    stats = parser.get_statistics()
-    print("控件统计:")
-    print(f"  总数: {stats['total_widgets']}")
-    print(f"  GROUP数量: {stats['groups']}")
-    print(f"  最大层级: {stats['max_level']}")
-    print("  按类型统计:")
-    for widget_type, count in stats['by_type'].items():
-        print(f"    {widget_type}: {count}")
-
-    # 获取树形结构（便于显示）
-    widget_tree = parser.get_widget_tree()
-    print("\n控件树结构:")
-    print(json.dumps(widget_tree, ensure_ascii=False, indent=2, default=str))
+    # 解析CSV文件
+    csv_path = "../../testData.csv"
+    result = parser.parse_csv(csv_path)
 
     # 导出为JSON
-    parser.export_to_json("widgets_hierarchy.json")
-    print("\n已导出为 widgets_hierarchy.json")
+    json_output = parser.export_to_json(result, "parsed_controls.json")
 
-    # 查找所有GROUP控件
-    groups = parser.find_widgets_by_type('GROUP')
-    print(f"\n找到 {len(groups)} 个GROUP控件:")
-    for group in groups:
-        children_count = len(group.get('children', []))
-        print(f"  - {group['object_name']} (层级 {group['level']}, 子控件: {children_count})")
+    # 打印摘要信息
+    print("=" * 60)
+    print(f"解析完成！")
+    print(f"找到 {len(result['templates'])} 种控件模板:")
+    for widget_type in result['templates'].keys():
+        print(f"  - {widget_type}")
 
-    # 查找test GROUP的子控件
-    test_group = next((g for g in groups if g['object_name'] == 'test'), None)
-    if test_group:
-        print(f"\ntest GROUP的子控件:")
-        for child in test_group.get('children', []):
-            print(f"  - {child['object_name']} ({child['widget_category']})")
+    print(f"\n解析了 {len(result['controls'])} 个控件")
+    print(f"构建了 {len(result['tree'])} 个根节点")
 
 
-    # 可视化
-    visualize_widget_tree(widget_tree)
+    # 打印树形结构
+    def print_tree(nodes, indent=0):
+        for node in nodes:
+            prefix = "  " * indent
+            level = node.get('level', 0)
+            widget_type = node.get('widget_category', 'UNKNOWN')
+            name = node.get('object_name', '')
+            print(f"{prefix}→" * level + f"{name} ({widget_type})")
+
+            if 'children' in node and node['children']:
+                print_tree(node['children'], indent + 1)
+
+
+    print("\n控件树形结构:")
+    print_tree(result['tree'])
+
+    print("\n完整JSON已保存到 parsed_controls.json")

@@ -1,4 +1,4 @@
-object_name,widget_category,|innate_attribute,control_name,description,long_description,widget_variant,modified_callback_enabled,modified_callback,||,url,suffix,callback,filter_str,default_path,group_props_name,|customizable_attr,visible,enabled,||,checked,min_val,max_val,step,info_type,text,display_text,value,items,color_alpha,color_red,color_green,color_blue,font_face,font_size,font_style,font_bold,font_italic,font_underline,font_strikeout,path_text,|derived_attribute,load_order,props,obj,||,group_props,folding_control_obj,color_value,font_data,font_flags
+object_name,widget_category,|,control_name,description,long_description,widget_variant,modified_callback_enabled,modified_callback,||,url,suffix,callback,filter_str,default_path,group_props_name,|,visible,enabled,||,checked,min_val,max_val,step,info_type,text,display_text,value,items,color_alpha,color_red,color_green,color_blue,font_face,font_size,font_style,font_bold,font_italic,font_underline,font_strikeout,path_text,|,load_order,props,obj,||,group_props,folding_control_obj,color_value,font_data,font_flags
 -,CHECKBOX,|,O,O,O,O,O,O,||,X,X,X,X,X,X,|,O,O,||,O,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,O,O,O,||,X,X,X,X,X
 -,DIGITALBOX,|,O,O,O,O,O,O,||,X,O,X,X,X,X,|,O,O,||,X,O,O,O,X,X,X,O,X,X,X,X,X,X,X,X,X,X,X,X,X,|,O,O,O,||,X,X,X,X,X
 -,TEXTBOX,|,O,O,O,O,O,O,||,X,X,X,X,X,X,|,O,O,||,X,X,X,X,O,O,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,O,O,O,||,X,X,X,X,X
@@ -27,7 +27,7 @@ test,COMBOBOX,|,test_comboBox,测试组合框,测试组合框（test）,LIST,fal
 test,PATHBOX,|,test_pathBox,测试路径选择框,测试路径选择框（test）,FILE,false,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,"""""",|,,,,||,X,X,X,X,X
 test,COLORBOX,|,test_colorBox,测试颜色选择框,测试颜色选择框（test）,ALPHA,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,0xFF,0xFF,0xFF,0xFF,X,X,X,X,X,X,X,X,|,,,,||,X,X,,X,X
 test,FONTBOX,|,test_fontBox,测试字体选择框,测试字体选择框（test）,,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,Kai,36,Regular,false,false,false,false,X,|,,,,||,X,X,X,,
-test,LISTBOX,|,test_listBox,测试列表框,测试列表框（test）,STRINGS,false,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,"[{""item"":""ll""}]",X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+test,LISTBOX,|,test_listBox,测试列表框,测试列表框（test）,STRINGS,false,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,"[{""item"":""ll"", ""value"":""k""},{""item"":""l"", ""value"":""3k""}]",X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
 test,GROUP,|,test_group,测试分组框,测试分组框（test）,CHECKABLE,false,test,||,X,X,X,X,X,group_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X
 →test1,COMBOBOX,|,test1_comboBox,测试组合框,测试组合框（test）,LIST,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,"""""","""""",[],X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
 →test1,PATHBOX,|,test1_pathBox,测试路径选择框,测试路径选择框（test）,FILE,false,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,"""""",|,,,,||,X,X,X,X,X
