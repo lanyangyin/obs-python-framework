@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Union
 
 from ..data import ExplanatoryDictionary
-from ..data import obsScriptGlobalVariable
+from ..data.obsScriptGlobalVariable import ObsScriptGlobalVariable
 import obspython as obs
 import traceback
 
@@ -44,7 +44,7 @@ class LogManager:
         """
         try:
             # 获取版本号，处理可能的异常
-            version = getattr(obsScriptGlobalVariable, 'version', 'Unknown')
+            version = getattr(ObsScriptGlobalVariable, 'version', 'Unknown')
 
             # 格式化时间
             now = datetime.now()

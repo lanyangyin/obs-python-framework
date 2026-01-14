@@ -14,7 +14,7 @@ script_config_folder = script_file_dir.joinpath(script_file_name)
 os.makedirs(script_config_folder, exist_ok=True)  # 新建脚本配置文件夹
 sys.path.insert(0, f'{script_config_folder}')  # 将脚本配置文件夹也加入环境用来导入包
 try:  # 导入脚本配置文件夹中的包
-    from src.data import obsScriptGlobalVariable
+    from src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
     from src.tool.LogManager import LogManager
     ImportSuccess = (True, None)
 except ImportError as e:
@@ -22,7 +22,7 @@ except ImportError as e:
     obs.script_log(obs.LOG_ERROR, str(e.msg))
 
 try:  # 开发测试用
-    from obsScriptFramework import obsScriptGlobalVariable
+    from obsScriptFramework.src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
     from obsScriptFramework.src.tool.LogManager import LogManager
 except ImportError:
     pass
@@ -37,16 +37,11 @@ def script_defaults(settings):  # 设置其默认值
     if not ImportSuccess[0]:
         return
     # 脚本设置体
-    obsScriptGlobalVariable.settings = settings
+    ObsScriptGlobalVariable.settings = settings
     # 日志管理器
-    obsScriptGlobalVariable.Log_manager = LogManager(script_config_folder / obsScriptGlobalVariable.log_folder_name)
-    # 脚本介绍
-    try:
-        with open(script_config_folder.joinpath(obsScriptGlobalVariable.description_filename), encoding="utf-8") as f:
-            obsScriptGlobalVariable.description = f.read()
-    except FileNotFoundError as e:
-        obsScriptGlobalVariable.description = str(e)
+    ObsScriptGlobalVariable.Log_manager = LogManager(script_config_folder / ObsScriptGlobalVariable.log_folder_name)
 
+PlugIns
 
 def script_description():
     """
@@ -55,7 +50,7 @@ def script_description():
     # 包载入判断
     if not ImportSuccess[0]:
         return ImportSuccess[1]
-    return obsScriptGlobalVariable.description
+    return ObsScriptGlobalVariable.description
 
 
 def script_load(settings):
@@ -67,7 +62,7 @@ def script_load(settings):
     # 包载入判断
     if not ImportSuccess[0]:
         return
-    obsScriptGlobalVariable.Log_manager.log_info(f"{script_file_name} 加载成功")
+    ObsScriptGlobalVariable.Log_manager.log_info(f"{script_file_name} 加载成功")
     pass
 
 
@@ -89,7 +84,7 @@ def script_properties():
     # 包载入判断
     if not ImportSuccess[0]:
         return
-    obsScriptGlobalVariable.Log_manager.log_info(f"生成控件")
+    ObsScriptGlobalVariable.Log_manager.log_info(f"生成控件")
     pass
 
 
@@ -117,7 +112,7 @@ def script_unload():
     # 包载入判断
     if not ImportSuccess[0]:
         return
-    obsScriptGlobalVariable.Log_manager.flush()
+    ObsScriptGlobalVariable.Log_manager.flush()
     pass
 
 
