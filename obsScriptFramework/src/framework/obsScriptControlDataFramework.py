@@ -1,6 +1,12 @@
 from collections import OrderedDict as PyOrderedDict
 from typing import Set
-from ..data.obsScriptControlData import *
+try:
+    from ..data.obsScriptControlData import *
+except ImportError as e:
+    try:
+        from obsScriptFramework.src.data.obsScriptControlData import *
+    except ImportError as e:
+        raise ImportError(e)
 
 # 控件管理
 # ----------------------------------------------------------------------------------------------------------------
@@ -395,12 +401,12 @@ class _CategoryManager:
         # 调用父管理器的创建方法
         return self._manager.create_widget(self._category, control_name, object_name, **kwargs)
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, object_name: str) -> Any:
         """
-        通过属性名获取控件
+        通过object_name获取控件
 
         参数:
-            name: 控件的control_name
+            object_name: 控件的对象名
 
         返回:
             控件数据对象
@@ -408,23 +414,25 @@ class _CategoryManager:
         异常:
             AttributeError: 如果控件不存在
         """
-        # 首先尝试从父管理器的分类字典中获取
+        # 从父管理器的分类字典中查找
         widgets_dict = self._manager._widgets_by_category.get(self._category, {})
 
-        if name in widgets_dict:
-            return widgets_dict[name]
+        # 遍历查找object_name匹配的控件
+        for widget in widgets_dict.values():
+            if widget.object_name == object_name:
+                return widget
 
         # 如果找不到，抛出AttributeError
-        raise AttributeError(f"分类 '{self._category.value}' 中没有名为 '{name}' 的控件")
+        raise AttributeError(f"分类 '{self._category.value}' 中没有名为 '{object_name}' 的控件")
 
-    def __getitem__(self, key: str) -> Any:
-        """支持通过[]语法访问控件"""
-        return self.__getattr__(key)
+    def __getitem__(self, object_name: str) -> Any:
+        """支持通过[]语法访问控件（使用object_name）"""
+        return self.__getattr__(object_name)
 
-    def __contains__(self, key: str) -> bool:
-        """检查控件是否存在"""
+    def __contains__(self, object_name: str) -> bool:
+        """检查object_name是否存在"""
         widgets_dict = self._manager._widgets_by_category.get(self._category, {})
-        return key in widgets_dict
+        return any(widget.object_name == object_name for widget in widgets_dict.values())
 
     def __iter__(self):
         """迭代该分类的所有控件"""
@@ -478,6 +486,8 @@ def get_control_manager() -> ControlManager:
 # 使用示例
 # ----------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
+    from obsScriptFramework.src.tool.scriptCsv2Json import ControlTemplateParser
+    parser = ControlTemplateParser()
     # 获取控件管理器
     cm = get_control_manager()
 
@@ -494,6 +504,22 @@ if __name__ == "__main__":
     print(f"  group_props_name: {basic_group.group_props_name}")
     print(f"可用group_props_name: {cm.available_group_props_names}")
 
+    result = parser.parse_csv(
+        "./obsScriptFramework/src/data/widgetData.csv",
+        initial_props_name=cm.get_basic_group().group_props_name
+    )
+    parser.export_to_json(result, "parsed_controls_with_props.json")
+    for controls_data in result["all_controls"]:
+        controls = getattr(cm, controls_data["widget_category"].lower())
+        args = controls_data["group_properties"]["group_1"] | controls_data["group_properties"].get("group_2", {})
+        args |= {"props_name": controls_data["props_name"]}
+        del args['control_name']
+        controls.add(
+            control_name=controls_data["group_properties"]["group_1"]["control_name"],
+            object_name=controls_data["object_name"],
+            **args
+        )
+
     # 2. 添加控件示例
     print("\n2. 添加控件示例")
     print("-" * 40)
@@ -503,10 +529,13 @@ if __name__ == "__main__":
         control_name="enable_feature",
         object_name="enable_feature_checkbox",
         description="启用高级功能",
+        long_description="启用功能",
+        modified_callback_enabled=False,
         checked=True,
         props_name="props"  # 来自基础group的group_props_name
     )
     print(f"添加了复选框: enable_feature (props_name: 'props')")
+    print(cm.checkbox.enable_feature_checkbox.props_name)
 
     # 添加一个数字框
     cm.digitalbox.add(

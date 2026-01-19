@@ -1,0 +1,15 @@
+class ModifiedFunction:
+
+    def __init__(self, start_property_name, end_property_name):
+        self.start_property_name = start_property_name
+        self.end_property_name = end_property_name
+        self.isScript_propertiesIs = True
+        pass
+
+    def property_modified(self, property_name):
+        if property_name == self.start_property_name:
+            self.isScript_propertiesIs = True
+        if property_name == self.end_property_name:
+            self.isScript_propertiesIs = False
+        if not self.isScript_propertiesIs:
+            pass
