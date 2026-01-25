@@ -306,21 +306,49 @@ def obs_property_set_long_description(Obj, LongDescription):
     return None
 
 
-def obs_properties_add_int_slider():
-    return None
-
-
-def obs_properties_add_int():
-    return None
-
-
-def obs_properties_add_float_slider():
-    return None
-
-
-def obs_properties_add_float():
-    return None
-
-
 def obs_property_int_set_suffix(Obj, Suffix):
+    return None
+
+
+def obs_properties_add_path(Props, Name, Description, obs_path_type, filter_str, default_path):
+    return None
+
+
+def obs_properties_add_group(Props, Name, Description, obs_group_type, GroupProps):
+    return None
+
+
+def obs_properties_add_bool(Props, folding_name, folding_desc):
+    return None
+
+
+def obs_properties_add_int_slider(props, control_name, description, min_val, max_val, step):
+    return None
+
+
+def obs_properties_add_int(props, control_name, description, min_val, max_val, step):
+    return None
+
+
+def obs_properties_add_editable_list(props, name, description, type, filter, default_path):
+    return None
+
+
+def obs_properties_add_font(props, name, description):
+    return None
+
+
+def obs_properties_add_color(props, name, description):
+    return None
+
+
+def obs_properties_add_color_alpha(props, name, description):
+    return None
+
+
+def obs_properties_add_float_slider(props, control_name, description, min_val, max_val, step):
+    return None
+
+
+def obs_properties_add_float(props, control_name, description, min_val, max_val, step):
     return None

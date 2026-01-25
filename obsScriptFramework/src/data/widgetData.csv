@@ -19,7 +19,7 @@ object_name,widget_category,|,control_name,description,long_description,widget_v
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-test,CHECKBOX,|,test_checkBox,测试复选框,测试复选框（test）,,false,test,||,X,X,X,X,X,X,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+test,CHECKBOX,|,test_checkBox,测试复选框,测试复选框（test）,,true,test,||,X,X,X,X,X,X,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
 test,DIGITALBOX,|,test_digitalBox,测试数字框,测试数字框（test）,INT,false,test,||,X,px,X,X,X,X,|,false,false,||,X,0,100,1,X,X,X,0,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
 test,TEXTBOX,|,test_textBox,测试文本框,测试文本框（test）,DEFAULT,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,,"""""",X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
 test,BUTTON,|,test_button,测试按钮,测试按钮（test）,DEFAULT,false,test,||,"""""",X,test,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
@@ -35,3 +35,4 @@ test,GROUP,|,test_group,测试分组框,测试分组框（test）,CHECKABLE,fals
 →test1,GROUP,|,test1_group,测试分组框,测试分组框（test）,NORMAL,false,test,||,X,X,X,X,X,group1_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X
 →→test2,TEXTBOX,|,test2_textBox,测试文本框,测试文本框（test）,INFO,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,NORMAL,"""""",X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
 test3,BUTTON,|,test3_button,测试按钮,测试按钮（test）,URL,false,test,||,http://captive.apple.comcaptive.apple.com,X,test,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+→→test2,GROUP,|,test2_group,测试分组框,测试分组框（test）,NORMAL,false,test,||,X,X,X,X,X,group2_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X

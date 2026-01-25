@@ -4,6 +4,10 @@ from ..data.ExplanatoryDictionary import *
 class TriggerFrontendEvent:
     """前端事件触发管理器"""
     def __init__(self, **kwargs):
+        """
+
+        :param kwargs:
+        """
         self.ObsScriptGlobalVariable = kwargs["a_s_g_v"]
 
     def trigger_frontend_event(self, event):

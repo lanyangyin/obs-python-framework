@@ -21,6 +21,8 @@ class ObsScriptGlobalVariable:
     """脚本设置体"""
     causeOfTheFrontDeskIncident = None
     """前台事件引起的原因"""
+    props_dict = {}
+    """控件属性集的字典"""
 
     __data_dir_path = Path(__file__).parent
     """数据文件存放文件夹路径"""
@@ -51,6 +53,8 @@ class ObsScriptGlobalVariable:
     """控件属性文档转换器"""
     t_f_event = None
     """前端事件触发管理器"""
+    btn_f = None
+    """按钮回调函数管理器"""
 
 if __name__ == "__main__":
     print(ObsScriptGlobalVariable.description_filename)
