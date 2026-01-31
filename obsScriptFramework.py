@@ -14,28 +14,28 @@ script_config_folder = script_file_dir.joinpath(script_file_name)
 os.makedirs(script_config_folder, exist_ok=True)  # 新建脚本配置文件夹
 sys.path.insert(0, f'{script_config_folder}')  # 将脚本配置文件夹也加入环境用来导入包
 try:  # 导入脚本配置文件夹中的包
+    from plugins.ButtonFunction import BtnFunction
     from src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
     from src.data.obsScriptControlData import *
     from src.tool.LogManager import LogManager
     from src.tool.scriptCsv2Json import ControlTemplateParser
     from src.framework.obsScriptControlDataFramework import get_control_manager
     from src.framework.obsScriptModifiedFramework import ModifiedFunction
-    from src.framework.TriggerFrontendEventFramework import TriggerFrontendEvent
-    from plugins.ButtonFunction import BtnFunction
+    from src.framework.obsTriggerFrontendEventFramework import TriggerFrontendEvent
     ImportSuccess = (True, None)
 except ImportError as e:
     ImportSuccess = (False, str(e.msg))
     obs.script_log(obs.LOG_ERROR, str(e.msg))
 
 try:  # 开发测试用
+    from obsScriptFramework.plugins.ButtonFunction import BtnFunction
     from obsScriptFramework.src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
     from obsScriptFramework.src.data.obsScriptControlData import *
     from obsScriptFramework.src.tool.LogManager import LogManager
     from obsScriptFramework.src.tool.scriptCsv2Json import ControlTemplateParser
     from obsScriptFramework.src.framework.obsScriptControlDataFramework import get_control_manager
     from obsScriptFramework.src.framework.obsScriptModifiedFramework import ModifiedFunction
-    from obsScriptFramework.src.framework.TriggerFrontendEventFramework import TriggerFrontendEvent
-    from obsScriptFramework.plugins.ButtonFunction import BtnFunction
+    from obsScriptFramework.src.framework.obsTriggerFrontendEventFramework import TriggerFrontendEvent
 except ImportError:
     pass
 
@@ -76,9 +76,11 @@ def script_defaults(settings):  # 设置其默认值
         ObsScriptGlobalVariable.Log_manager.log_info(controls_data["group_properties"]["group_1"]["control_name"])
         del args['control_name']
         if args['modified_callback_enabled']:
-            args['modified_callback'] = lambda name=controls_data["group_properties"]["group_1"]["control_name"]: ObsScriptGlobalVariable.mdf_f.property_modified(name)
+            args['modified_callback'] = ObsScriptGlobalVariable.mdf_f.property_modified(
+                controls_data["group_properties"]["group_1"]["control_name"]
+            )
         if args.get("callback", False):
-            args["callback"] = getattr(ObsScriptGlobalVariable.btn_f, args["callback"])
+            args["callback"] = ObsScriptGlobalVariable.btn_f.specified(args["callback"])
         args["widget_category"] = getattr(WidgetCategory, controls_data["widget_category"])
         if args['widget_variant']:
             if args["widget_category"] == WidgetCategory.CHECKBOX:
@@ -129,7 +131,7 @@ def script_load(settings):
     if not ImportSuccess[0]:
         return
     ObsScriptGlobalVariable.Log_manager.log_info(f"{script_file_name} 加载成功")
-    obs.obs_frontend_add_event_callback(lambda event: ObsScriptGlobalVariable.t_f_event.trigger_frontend_event(event))
+    obs.obs_frontend_add_event_callback(ObsScriptGlobalVariable.t_f_event.event_callback())
     pass
 
 
@@ -150,7 +152,7 @@ def script_properties():
     """主属性创建函数"""
     # 包载入判断
     if not ImportSuccess[0]:
-        return
+        return None
     ObsScriptGlobalVariable.Log_manager.log_info(f"生成控件")
 
     for props_name in ObsScriptGlobalVariable.control_manager.available_group_props_names:
@@ -196,7 +198,7 @@ def script_properties():
             # 添加按钮控件
             ObsScriptGlobalVariable.Log_manager.log_info(f"按钮控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_button(
-                w.props, w.control_name, w.description, lambda ps, p, lw=w: lw.callback()
+                w.props, w.control_name, w.description, w.callback
             )
             obs.obs_property_button_set_type(w.obj, w.widget_variant.value)
             if w.widget_variant == ButtonVariant.URL:  # 是否为链接跳转按钮
@@ -242,8 +244,7 @@ def script_properties():
 
         if w.modified_callback_enabled:
             ObsScriptGlobalVariable.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
-            obs.obs_property_set_modified_callback(w.obj, lambda ps, p, st, lw=w: lw.modified_callback())
-
+            obs.obs_property_set_modified_callback(w.obj, w.modified_callback)
     # GlobalVariableOfData.props_dict = props_dict
     # 更新UI界面数据#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*
     # update_ui_interface_data()

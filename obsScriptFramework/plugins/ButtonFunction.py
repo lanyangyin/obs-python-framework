@@ -1,3 +1,6 @@
+from typing import Callable, Any
+
+
 class BtnFunction:
     def __init__(self, **kwargs):
         """
@@ -6,24 +9,16 @@ class BtnFunction:
         """
         self.ObsScriptGlobalVariable = kwargs["a_s_g_v"]
 
-    def top(self, *args):
-        if len(args) == 2:
-            props = args[0]
-            prop = args[1]
-        if len(args) == 3:
-            settings = args[2]
+    def specified(self, button_name: str) -> Callable[[Any, Any], Any]:
+        def build_bf(ps, p):
+            getattr(self, button_name)()
+        return build_bf
 
-    def bottom(self, *args):
-        if len(args) == 2:
-            props = args[0]
-            prop = args[1]
-        if len(args) == 3:
-            settings = args[2]
+    def top(self):
+        self.ObsScriptGlobalVariable.Log_manager.log_info("top")
 
-    def test(self, *args):
-        if len(args) == 2:
-            props = args[0]
-            prop = args[1]
-        if len(args) == 3:
-            settings = args[2]
+    def bottom(self):
+        self.ObsScriptGlobalVariable.Log_manager.log_info("bottom")
+
+    def test(self):
         self.ObsScriptGlobalVariable.Log_manager.log_info("test")

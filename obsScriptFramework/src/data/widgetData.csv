@@ -20,19 +20,19 @@ object_name,widget_category,|,control_name,description,long_description,widget_v
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 test,CHECKBOX,|,test_checkBox,测试复选框,测试复选框（test）,,true,test,||,X,X,X,X,X,X,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
-test,DIGITALBOX,|,test_digitalBox,测试数字框,测试数字框（test）,INT,false,test,||,X,px,X,X,X,X,|,false,false,||,X,0,100,1,X,X,X,0,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
-test,TEXTBOX,|,test_textBox,测试文本框,测试文本框（test）,DEFAULT,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,,"""""",X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+test,DIGITALBOX,|,test_digitalBox,测试数字框,测试数字框（test）,INT,true,test,||,X,px,X,X,X,X,|,false,false,||,X,0,100,1,X,X,X,0,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+test,TEXTBOX,|,test_textBox,测试文本框,测试文本框（test）,DEFAULT,true,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,,"""""",X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
 test,BUTTON,|,test_button,测试按钮,测试按钮（test）,DEFAULT,false,test,||,"""""",X,test,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
-test,COMBOBOX,|,test_comboBox,测试组合框,测试组合框（test）,LIST,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,"""""","""""",[],X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
-test,PATHBOX,|,test_pathBox,测试路径选择框,测试路径选择框（test）,FILE,false,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,"""""",|,,,,||,X,X,X,X,X
-test,COLORBOX,|,test_colorBox,测试颜色选择框,测试颜色选择框（test）,ALPHA,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,0xFF,0xFF,0xFF,0xFF,X,X,X,X,X,X,X,X,|,,,,||,X,X,,X,X
-test,FONTBOX,|,test_fontBox,测试字体选择框,测试字体选择框（test）,,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,Kai,36,Regular,false,false,false,false,X,|,,,,||,X,X,X,,
-test,LISTBOX,|,test_listBox,测试列表框,测试列表框（test）,STRINGS,false,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,"[{""item"":""ll"", ""value"":""k""},{""item"":""l"", ""value"":""3k""}]",X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
-test,GROUP,|,test_group,测试分组框,测试分组框（test）,CHECKABLE,false,test,||,X,X,X,X,X,group_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X
-→test1,COMBOBOX,|,test1_comboBox,测试组合框,测试组合框（test）,LIST,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,"""""","""""",[],X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
-→test1,PATHBOX,|,test1_pathBox,测试路径选择框,测试路径选择框（test）,FILE,false,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,"""""",|,,,,||,X,X,X,X,X
-→test1,COLORBOX,|,test1_colorBox,测试颜色选择框,测试颜色选择框（test）,ALPHA,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,0xFF,0xFF,0xFF,0xFF,X,X,X,X,X,X,X,X,|,,,,||,X,X,,X,X
-→test1,GROUP,|,test1_group,测试分组框,测试分组框（test）,NORMAL,false,test,||,X,X,X,X,X,group1_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X
-→→test2,TEXTBOX,|,test2_textBox,测试文本框,测试文本框（test）,INFO,false,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,NORMAL,"""""",X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+test,COMBOBOX,|,test_comboBox,测试组合框,测试组合框（test）,LIST,true,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,"""""","""""",[],X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+test,PATHBOX,|,test_pathBox,测试路径选择框,测试路径选择框（test）,FILE,true,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,"""""",|,,,,||,X,X,X,X,X
+test,COLORBOX,|,test_colorBox,测试颜色选择框,测试颜色选择框（test）,ALPHA,true,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,0xFF,0xFF,0xFF,0xFF,X,X,X,X,X,X,X,X,|,,,,||,X,X,,X,X
+test,FONTBOX,|,test_fontBox,测试字体选择框,测试字体选择框（test）,,true,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,Kai,36,Regular,false,false,false,false,X,|,,,,||,X,X,X,,
+test,LISTBOX,|,test_listBox,测试列表框,测试列表框（test）,STRINGS,true,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,"[{""item"":""ll"", ""value"":""k""},{""item"":""l"", ""value"":""3k""}]",X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+test,GROUP,|,test_group,测试分组框,测试分组框（test）,CHECKABLE,true,test,||,X,X,X,X,X,group_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X
+→test1,COMBOBOX,|,test1_comboBox,测试组合框,测试组合框（test）,LIST,true,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,"""""","""""",[],X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+→test1,PATHBOX,|,test1_pathBox,测试路径选择框,测试路径选择框（test）,FILE,true,test,||,X,X,X,*.*,"""""",X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,"""""",|,,,,||,X,X,X,X,X
+→test1,COLORBOX,|,test1_colorBox,测试颜色选择框,测试颜色选择框（test）,ALPHA,true,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,0xFF,0xFF,0xFF,0xFF,X,X,X,X,X,X,X,X,|,,,,||,X,X,,X,X
+→test1,GROUP,|,test1_group,测试分组框,测试分组框（test）,NORMAL,true,test,||,X,X,X,X,X,group1_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X
+→→test2,TEXTBOX,|,test2_textBox,测试文本框,测试文本框（test）,INFO,true,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,NORMAL,"""""",X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
 test3,BUTTON,|,test3_button,测试按钮,测试按钮（test）,URL,false,test,||,http://captive.apple.comcaptive.apple.com,X,test,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
-→→test2,GROUP,|,test2_group,测试分组框,测试分组框（test）,NORMAL,false,test,||,X,X,X,X,X,group2_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X
+→→test2,GROUP,|,test2_group,测试分组框,测试分组框（test）,NORMAL,true,test,||,X,X,X,X,X,group2_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X

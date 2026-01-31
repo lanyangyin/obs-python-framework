@@ -486,7 +486,7 @@ def get_control_manager() -> ControlManager:
 # 使用示例
 # ----------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    from obsScriptFramework_.src.tool.scriptCsv2Json import ControlTemplateParser
+    from obsScriptFramework.src.tool.scriptCsv2Json import ControlTemplateParser
     parser = ControlTemplateParser()
     # 获取控件管理器
     cm = get_control_manager()
