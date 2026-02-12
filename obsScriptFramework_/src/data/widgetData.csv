@@ -34,5 +34,5 @@ test,GROUP,|,test_group,测试分组框,测试分组框（test）,CHECKABLE,true
 →test1,COLORBOX,|,test1_colorBox,测试颜色选择框,测试颜色选择框（test）,ALPHA,true,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,0xFF,0xFF,0xFF,0xFF,X,X,X,X,X,X,X,X,|,,,,||,X,X,,X,X
 →test1,GROUP,|,test1_group,测试分组框,测试分组框（test）,NORMAL,true,test,||,X,X,X,X,X,group1_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X
 →→test2,TEXTBOX,|,test2_textBox,测试文本框,测试文本框（test）,INFO,true,test,||,X,X,X,X,X,X,|,false,false,||,X,X,X,X,NORMAL,"""""",X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
-test3,BUTTON,|,test3_button,测试按钮,测试按钮（test）,URL,false,test,||,http://captive.apple.comcaptive.apple.com,X,test,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
+test2,BUTTON,|,test3_button,测试按钮,测试按钮（test）,URL,false,test,||,http://captive.apple.comcaptive.apple.com,X,test,X,X,X,|,false,false,||,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,X,X,X,X,X
 →→test2,GROUP,|,test2_group,测试分组框,测试分组框（test）,NORMAL,true,test,||,X,X,X,X,X,group2_props,|,false,false,||,false,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,|,,,,||,,,X,X,X

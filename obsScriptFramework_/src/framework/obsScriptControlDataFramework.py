@@ -1,3 +1,4 @@
+
 from collections import OrderedDict as PyOrderedDict
 from typing import Set
 try:
@@ -486,7 +487,7 @@ def get_control_manager() -> ControlManager:
 # 使用示例
 # ----------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    from obsScriptFramework.src.tool.scriptCsv2Json import ControlTemplateParser
+    from obsScriptFramework_.src.tool.scriptCsv2Json import ControlTemplateParser
     parser = ControlTemplateParser()
     # 获取控件管理器
     cm = get_control_manager()
@@ -505,7 +506,7 @@ if __name__ == "__main__":
     print(f"可用group_props_name: {cm.available_group_props_names}")
 
     result = parser.parse_csv(
-        "./obsScriptFramework/src/data/widgetData.csv",
+        "../data/widgetData.csv",
         initial_props_name=cm.get_basic_group().group_props_name
     )
     parser.export_to_json(result, "parsed_controls_with_props.json")

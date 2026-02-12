@@ -1,5 +1,4 @@
 """定义了一些脚本的全局变量"""
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -37,11 +36,13 @@ class ObsScriptGlobalVariable:
         except FileNotFoundError as e:
             return str(e)
 
-    control_data_csv_filename: str = "widgetData.csv"
+    control_data_csv_filename: str = "widgetData_.csv"
     """控件数据csv文件名"""
     @classproperty
     def control_data_csv_filepath(self) -> str:
         return str(self.__data_dir_path / self.control_data_csv_filename)
+
+    property_modified_callback_allow_execution: bool = True
 
     Log_manager: Any = None
     """日志管理器"""
