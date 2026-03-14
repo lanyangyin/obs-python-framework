@@ -340,7 +340,7 @@ if __name__ == "__main__":
     result = parser.parse_csv(csv_path, initial_props_name="props")
 
     # 导出为JSON
-    # json_output = parser.export_to_json(result, "parsed_controls_with_props.json")
+    json_output = parser.export_to_json(result, "parsed_controls_with_props.json")
 
     # 生成摘要报告
     summary = parser.generate_summary_report(result)

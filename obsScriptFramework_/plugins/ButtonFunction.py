@@ -6,13 +6,14 @@ class BtnFunction(metaclass=AliasMeta):
 
         :param kwargs:
         """
-        self.ObsScriptGlobalVariable = kwargs["a_s_g_v"]
+        self.Log_manager = kwargs["a_s_g_v"].Log_manager
 
     def top(self):
-        self.ObsScriptGlobalVariable.Log_manager.log_info("top")
+        self.Log_manager.log_info("top")
 
     def bottom(self):
-        self.ObsScriptGlobalVariable.Log_manager.log_info("bottom")
+        self.Log_manager.log_info("bottom")
 
+    @add_aliases("test_digitalBox")
     def test(self):
-        self.ObsScriptGlobalVariable.Log_manager.log_info("test")
+        self.Log_manager.log_info("test")
