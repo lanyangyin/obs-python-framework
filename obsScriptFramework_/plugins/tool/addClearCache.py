@@ -60,22 +60,22 @@ if __name__ == '__main__':
             self._clear_cache = True
             self.t = "True"
 
-        @add_clear_cache
         @staticmethod
         @lru_cache(maxsize=None)
+        @add_clear_cache
         def test():
             print("Computing test")
             return True
 
-        @add_clear_cache
         @staticmethod
         @lru_cache(maxsize=None)
+        @add_clear_cache
         def test1():
             print("Computing test1")
             return True
 
-        @add_clear_cache
         @lru_cache(maxsize=None)
+        @add_clear_cache
         def test2(self):
             print(f"Computing test{self.t}")
             return True
@@ -92,3 +92,47 @@ if __name__ == '__main__':
     print(ControlDataSetFunction.test())  # 再次输出 "Computing test"（缓存已清）
     print(ControlDataSetFunction.test1())  # 再次输出 "Computing test1"
     print(cdf.test2())  # 再次输出 "Computing testTrue"
+
+    # ===== 结合别名装饰器与缓存清理（修复后） =====
+    from addAliases import add_aliases, AliasMeta
+
+    class AliasWithCache(ClearableCache, metaclass=AliasMeta):
+        def __init__(self, value):
+            self.value = value
+
+        @add_aliases("add", "sum")
+        @lru_cache(maxsize=None)
+        @add_clear_cache
+        def compute(self, x):
+            print(f"Computing {self.value} + {x}")
+            return self.value + x
+
+        # 静态方法：@staticmethod 在外，@add_aliases 在内
+        @staticmethod
+        @add_aliases("static_add", "static_sum")
+        @lru_cache(maxsize=None)
+        @add_clear_cache
+        def static_compute(x, y):
+            print(f"Static computing {x} + {y}")
+            return x + y
+
+    print("\n=== 测试别名与缓存清理 ===")
+    obj = AliasWithCache(10)
+    print("首次调用 compute(5):", obj.compute(5))   # 输出 Computing 10 + 5 → 15
+    print("再次调用 compute(5):", obj.compute(5))   # 无输出，缓存命中 → 15
+    print("通过别名 add(5):", obj.add(5))           # 无输出，缓存命中 → 15
+    print("通过别名 sum(5):", obj.sum(5))           # 无输出，缓存命中 → 15
+    print("首次调用 compute(5):", obj.compute(6))   # 输出 Computing 10 + 6 → 16
+    print("\n================")
+
+    print("\n首次调用 static_compute(3,4):", AliasWithCache.static_compute(3,4))   # 输出 → 7
+    print("再次调用 static_compute(3,4):", AliasWithCache.static_compute(3,4))     # 无输出 → 7
+    print("通过别名 static_add(3,4):", AliasWithCache.static_add(3,4))             # 无输出 → 7
+    print("通过别名 static_sum(3,4):", AliasWithCache.static_sum(3,4))             # 无输出 → 7
+
+    # 清除缓存
+    AliasWithCache.clear()
+    print("\n缓存已清除")
+    print("再次调用 compute(5):", obj.compute(5))   # 重新输出 → 15
+    print("通过别名 add(5):", obj.add(5))           # 重新输出 → 15
+    print("再次调用 static_compute(3,4):", AliasWithCache.static_compute(3,4))     # 重新输出 → 7

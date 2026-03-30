@@ -6,7 +6,7 @@ class BtnFunction(metaclass=AliasMeta):
 
         :param kwargs:
         """
-        self.Log_manager = kwargs["a_s_g_v"].Log_manager
+        self.Log_manager = kwargs["Log_manager"]
 
     def top(self):
         self.Log_manager.log_info("top")

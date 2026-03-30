@@ -15,8 +15,8 @@ class classproperty:
 class ObsScriptGlobalVariable:
     """脚本的全局变量"""
     control_property_table_dictionary: dict[str, Any] = {}
-    update_widget_for_props_dict: dict[str, list[str]] = {}
-    """根据控件属性集更新控件"""
+    # update_widget_for_props_dict: dict[str, list[str]] = {}
+    # """根据控件属性集更新控件"""
     version: str = "1.0.0"
     """脚本版本号"""
     settings: Any = None

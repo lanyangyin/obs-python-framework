@@ -18,10 +18,15 @@ try:  # 导入脚本配置文件夹中的包
     from src.tool.scriptCsv2Json import ControlTemplateParser
     from src.tool.CommonDataManager import CommonDataManager
     from src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
-    from src.data.obsScriptControlData import *
+    from src.data.obsScriptControlData import WidgetCategory
+    from src.data.obsScriptControlData import (CheckBoxVariant, DigitalBoxVariant, TextBoxVariant, ButtonVariant,
+                                               ComboBoxVariant, PathBoxVariant, ColorBoxVariant, FontBoxVariant,
+                                               ListBoxVariant, GroupVariant)
     from plugins.ButtonFunction import BtnFunction
     from plugins.ControlFunction import ControlDataSetFunction
     from src.framework.obsScriptControlDataFramework import get_control_manager
+    from src.framework.obsScriptControlInnatePropertyBuildFramework import build_controls
+    from src.framework.obsScriptControlFreePropertyBuildFramework import apply_user_properties
     from src.framework.obsScriptModifiedFramework import ModifiedFunction
     from src.framework.obsTriggerFrontendEventFramework import TriggerFrontendEvent
     ImportSuccess = (True, None)
@@ -34,11 +39,17 @@ try:  # 开发测试用
     from obsScriptFramework_.src.tool.scriptCsv2Json import ControlTemplateParser
     from obsScriptFramework_.src.tool.CommonDataManager import CommonDataManager
     from obsScriptFramework_.src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
-    from obsScriptFramework_.src.data.obsScriptControlData import *
+    from obsScriptFramework_.src.data.obsScriptControlData import WidgetCategory
+    from obsScriptFramework_.src.data.obsScriptControlData import (CheckBoxVariant, DigitalBoxVariant, TextBoxVariant,
+                                                                   ButtonVariant, ComboBoxVariant, PathBoxVariant,
+                                                                   ColorBoxVariant, FontBoxVariant, ListBoxVariant,
+                                                                   GroupVariant)
     from obsScriptFramework_.plugins.ButtonFunction import BtnFunction
     from obsScriptFramework_.plugins.ControlFunction import ControlDataSetFunction
     from obsScriptFramework_.src.framework.obsScriptControlDataFramework import get_control_manager
     from obsScriptFramework_.src.framework.obsSciptButtonFunctionFramework import ObsScriptButtonFunctionFramework
+    from obsScriptFramework_.src.framework.obsScriptControlInnatePropertyBuildFramework import build_controls
+    from obsScriptFramework_.src.framework.obsScriptControlFreePropertyBuildFramework import apply_user_properties
     from obsScriptFramework_.src.framework.obsScriptModifiedFramework import ModifiedFunction
     from obsScriptFramework_.src.framework.obsTriggerFrontendEventFramework import TriggerFrontendEvent
 except ImportError:
@@ -64,7 +75,7 @@ def script_defaults(settings):  # 设置其默认值
     # 控件属性文档转换器
     ObsScriptGlobalVariable.control_parser = ControlTemplateParser()
     # 按钮回调函数类
-    ObsScriptGlobalVariable.btn = BtnFunction(a_s_g_v=ObsScriptGlobalVariable)
+    ObsScriptGlobalVariable.btn = BtnFunction(Log_manager=ObsScriptGlobalVariable.Log_manager)
     # 控件获取属性函数类
     ObsScriptGlobalVariable.cds = ControlDataSetFunction(a_s_g_v=ObsScriptGlobalVariable)
     # 前端事件触发管理器
@@ -82,110 +93,21 @@ def script_defaults(settings):  # 设置其默认值
         initial_props_name=ObsScriptGlobalVariable.control_manager.get_basic_group().group_props_name
     )
 
-    # 设定初始白板控件属性
-    # 创建用于开启控件修改回调的按钮
-    if not hasattr(
-            ObsScriptGlobalVariable.control_manager.button,
-            "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"
-    ):
-        ObsScriptGlobalVariable.control_manager.button.add(
-            control_name="e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-            object_name="e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-            description="允许执行控件修改回调",
-            long_description="允许执行控件修改回调",
-            widget_variant=ButtonVariant.DEFAULT,
-            modified_callback_enabled=True,
-            modified_callback=ObsScriptGlobalVariable.mdf_f.property_modified(
-                "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"
-            ),
-            url="",
-            callback=lambda pr, ps: None
-        )
-    # 设定其他白板控件属性
-    for controls_data in ObsScriptGlobalVariable.control_property_table_dictionary["all_controls"]:  # 添加控件原始属性
-        controls = getattr(ObsScriptGlobalVariable.control_manager, controls_data["widget_category"].lower())
-        if hasattr(controls, controls_data["object_name"]):
-            continue
-        kwargs = controls_data["group_properties"]["group_1"] | controls_data["group_properties"].get("group_2", {})
-        kwargs |= {"props_name": controls_data["props_name"]}
-        ObsScriptGlobalVariable.Log_manager.log_info(controls_data["group_properties"]["group_1"]["control_name"])
-        del kwargs['control_name']
-        if kwargs['modified_callback_enabled']:
-            kwargs['modified_callback'] = ObsScriptGlobalVariable.mdf_f.property_modified(
-                controls_data["group_properties"]["group_1"]["control_name"]
-            )
-        if kwargs.get("callback", False):
-            kwargs["callback"] = ObsScriptGlobalVariable.btn_f.select(kwargs["callback"])
-        kwargs["widget_category"] = getattr(WidgetCategory, controls_data["widget_category"])
-        if kwargs['widget_variant']:
-            if kwargs["widget_category"] == WidgetCategory.CHECKBOX:
-                kwargs['widget_variant'] = getattr(CheckBoxVariant, kwargs['widget_variant'])
-            elif kwargs["widget_category"] == WidgetCategory.DIGITALBOX:
-                kwargs['widget_variant'] = getattr(DigitalBoxVariant, kwargs['widget_variant'])
-            elif kwargs["widget_category"] == WidgetCategory.TEXTBOX:
-                kwargs['widget_variant'] = getattr(TextBoxVariant, kwargs['widget_variant'])
-            elif kwargs["widget_category"] == WidgetCategory.BUTTON:
-                kwargs['widget_variant'] = getattr(ButtonVariant, kwargs['widget_variant'])
-            elif kwargs["widget_category"] == WidgetCategory.COMBOBOX:
-                kwargs['widget_variant'] = getattr(ComboBoxVariant, kwargs['widget_variant'])
-            elif kwargs["widget_category"] == WidgetCategory.PATHBOX:
-                kwargs['widget_variant'] = getattr(PathBoxVariant, kwargs['widget_variant'])
-            elif kwargs["widget_category"] == WidgetCategory.COLORBOX:
-                kwargs['widget_variant'] = getattr(ColorBoxVariant, kwargs['widget_variant'])
-            elif kwargs["widget_category"] == WidgetCategory.FONTBOX:
-                kwargs['widget_variant'] = getattr(FontBoxVariant, kwargs['widget_variant'])
-            elif kwargs["widget_category"] == WidgetCategory.LISTBOX:
-                kwargs['widget_variant'] = getattr(ListBoxVariant, kwargs['widget_variant'])
-            elif kwargs["widget_category"] == WidgetCategory.GROUP:
-                kwargs['widget_variant'] = getattr(GroupVariant, kwargs['widget_variant'])
-        controls.add(
-            control_name=controls_data["group_properties"]["group_1"]["control_name"],
-            object_name=controls_data["object_name"],
-            **kwargs
-        )
-    # 创建用于关闭控件修改回调的按钮
-    if not hasattr(
-            ObsScriptGlobalVariable.control_manager.button,
-            "e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"
-    ):
-        ObsScriptGlobalVariable.control_manager.button.add(
-            control_name="e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-            object_name="e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-            description="禁止执行控件修改回调",
-            long_description="禁止执行控件修改回调",
-            widget_variant=ButtonVariant.DEFAULT,
-            modified_callback_enabled=True,
-            modified_callback=ObsScriptGlobalVariable.mdf_f.property_modified(
-                "e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"
-            ),
-            url="",
-            callback=lambda pr, ps: None
-        )
-
-    if not ObsScriptGlobalVariable.update_widget_for_props_dict:
-        ObsScriptGlobalVariable.update_widget_for_props_dict = ObsScriptGlobalVariable.control_manager.get_props_mapping()
-
-    update_widget_for_props_name = set()
-    for props_name in ObsScriptGlobalVariable.update_widget_for_props_dict:
-        update_widget_for_props_name |= set(ObsScriptGlobalVariable.update_widget_for_props_dict[props_name])
+    # 设定 天赋属性
+    build_controls(
+        control_manager=ObsScriptGlobalVariable.control_manager,
+        control_property_table_dictionary=ObsScriptGlobalVariable.control_property_table_dictionary,
+        log_manager=ObsScriptGlobalVariable.Log_manager,
+        mdf_f=ObsScriptGlobalVariable.mdf_f,
+        btn_f=ObsScriptGlobalVariable.btn_f,
+    )
 
     # 设定控件用户属性
-    for controls_data in ObsScriptGlobalVariable.control_property_table_dictionary["all_controls"]:
-        if controls_data["group_properties"]["group_1"]["control_name"] in update_widget_for_props_name:
-            controls = getattr(
-                getattr(
-                    ObsScriptGlobalVariable.control_manager,
-                    controls_data["widget_category"].lower()
-                ),
-                controls_data["object_name"]
-            )
-            control_properties = controls_data["group_properties"].get("group_3", {}) | controls_data["group_properties"].get("group_4", {})
-            for control_properties_name in control_properties:
-                if hasattr(ObsScriptGlobalVariable.cds, controls_data["group_properties"]["group_1"]["control_name"]):
-                    setattr(
-                        controls, control_properties_name,
-                        getattr(ObsScriptGlobalVariable.cds, controls_data["group_properties"]["group_1"]["control_name"])
-                    )
+    apply_user_properties(
+        control_manager=ObsScriptGlobalVariable.control_manager,
+        control_property_table_dictionary=ObsScriptGlobalVariable.control_property_table_dictionary,
+        cds=ObsScriptGlobalVariable.cds
+    )
 
 def script_description():
     """
@@ -274,7 +196,7 @@ def script_properties():
             # 添加按钮控件
             ObsScriptGlobalVariable.Log_manager.log_info(f"按钮控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_button(
-                w.props, w.control_name, w.description, w.callback
+                w.props, w.control_name, w.description, w.click_callback
             )
             obs.obs_property_button_set_type(w.obj, w.widget_variant.value)
             if w.widget_variant == ButtonVariant.URL:  # 是否为链接跳转按钮
@@ -314,7 +236,7 @@ def script_properties():
             w.obj = obs.obs_properties_add_group(
                 w.props, w.control_name, w.description, w.widget_variant.value, w.group_props
             )
-            if w.widget_variant == GroupVariant.CHECKABLE:
+            if w.widget_variant == GroupVariant.CHECKABLE:  # 如果分组框的派生类型是复选分组框
                 # 添加复选框控件作为折叠分组框
                 ObsScriptGlobalVariable.Log_manager.log_info(f"复选框控件: {w.control_name} 【{w.description}】")
                 w.fold_obj = obs.obs_properties_add_bool(w.props, w.control_name.encode().hex(), w.description)
@@ -325,7 +247,7 @@ def script_properties():
         if w.modified_callback_enabled:
             ObsScriptGlobalVariable.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
             obs.obs_property_set_modified_callback(w.obj, w.modified_callback)
-            if w.widget_variant == GroupVariant.CHECKABLE:
+            if w.widget_variant == GroupVariant.CHECKABLE:  # 如果分组框的派生类型是复选分组框
                 ObsScriptGlobalVariable.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
                 obs.obs_property_set_modified_callback(w.fold_obj, w.modified_callback)
     # GlobalVariableOfData.props_dict = props_dict

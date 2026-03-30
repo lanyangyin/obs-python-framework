@@ -1,0 +1,118 @@
+# 使用正确的相对导入（从 framework 到 data，再到其他需要的模块）
+from ..data.obsScriptGlobalVariable import ObsScriptGlobalVariable
+from ..data.obsScriptControlData import (
+    WidgetCategory,
+    CheckBoxVariant,
+    DigitalBoxVariant,
+    TextBoxVariant,
+    ButtonVariant,
+    ComboBoxVariant,
+    PathBoxVariant,
+    ColorBoxVariant,
+    FontBoxVariant,
+    ListBoxVariant,
+    GroupVariant,
+)
+
+# 为了类型提示（可选）
+from typing import Any, Dict
+
+
+def build_controls(
+    control_manager: Any,
+    control_property_table_dictionary: Dict[str, Any],
+    log_manager: Any,
+    mdf_f: Any,
+    btn_f: Any,
+) -> None:
+    """
+    根据提供的配置构建所有控件。
+
+    参数：
+        control_manager: 控件管理器实例
+        control_property_table_dictionary: 包含控件定义的字典，必须包含键 "all_controls"
+        log_manager: 日志管理器实例
+        mdf_f: 修改回调函数管理器
+        btn_f: 按钮回调函数管理器
+    """
+    # ---------- 1. 创建“允许执行控件修改回调”按钮 ----------
+    if not hasattr(control_manager.button, "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"):
+        control_manager.button.add(
+            control_name="e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+            object_name="e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+            description="允许执行控件修改回调",
+            long_description="允许执行控件修改回调",
+            widget_variant=ButtonVariant.DEFAULT,
+            modified_callback_enabled=True,
+            modified_callback=mdf_f.property_modified("e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"),
+            url="",
+            click_callback=lambda pr, ps: None,
+        )
+
+    # ---------- 2. 构建 CSV 中定义的所有控件 ----------
+    for controls_data in control_property_table_dictionary["all_controls"]:
+        control_manager_category = getattr(control_manager, controls_data["widget_category"].lower())
+
+        if hasattr(control_manager_category, controls_data["object_name"]):
+            continue
+
+        kwargs = {"props_name": controls_data["props_name"]}
+        kwargs |= controls_data["group_properties"]["group_1"]
+        kwargs |= controls_data["group_properties"].get("group_2", {})
+
+        control_name = controls_data["group_properties"]["group_1"]["control_name"]
+        log_manager.log_info(control_name)
+
+        del kwargs["control_name"]
+
+        if kwargs["modified_callback_enabled"]:
+            kwargs["modified_callback"] = mdf_f.property_modified(control_name)
+
+        if kwargs.get("click_callback", False):
+            kwargs["click_callback"] = btn_f.select(kwargs["click_callback"])
+
+        kwargs["widget_category"] = getattr(WidgetCategory, controls_data["widget_category"])
+
+        if kwargs["widget_variant"]:
+            category = kwargs["widget_category"]
+            variant_name = kwargs["widget_variant"]
+            if category == WidgetCategory.CHECKBOX:
+                kwargs["widget_variant"] = getattr(CheckBoxVariant, variant_name)
+            elif category == WidgetCategory.DIGITALBOX:
+                kwargs["widget_variant"] = getattr(DigitalBoxVariant, variant_name)
+            elif category == WidgetCategory.TEXTBOX:
+                kwargs["widget_variant"] = getattr(TextBoxVariant, variant_name)
+            elif category == WidgetCategory.BUTTON:
+                kwargs["widget_variant"] = getattr(ButtonVariant, variant_name)
+            elif category == WidgetCategory.COMBOBOX:
+                kwargs["widget_variant"] = getattr(ComboBoxVariant, variant_name)
+            elif category == WidgetCategory.PATHBOX:
+                kwargs["widget_variant"] = getattr(PathBoxVariant, variant_name)
+            elif category == WidgetCategory.COLORBOX:
+                kwargs["widget_variant"] = getattr(ColorBoxVariant, variant_name)
+            elif category == WidgetCategory.FONTBOX:
+                kwargs["widget_variant"] = getattr(FontBoxVariant, variant_name)
+            elif category == WidgetCategory.LISTBOX:
+                kwargs["widget_variant"] = getattr(ListBoxVariant, variant_name)
+            elif category == WidgetCategory.GROUP:
+                kwargs["widget_variant"] = getattr(GroupVariant, variant_name)
+
+        control_manager_category.add(
+            control_name=control_name,
+            object_name=controls_data["object_name"],
+            **kwargs,
+        )
+
+    # ---------- 3. 创建“禁止执行控件修改回调”按钮 ----------
+    if not hasattr(control_manager.button, "e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"):
+        control_manager.button.add(
+            control_name="e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+            object_name="e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+            description="禁止执行控件修改回调",
+            long_description="禁止执行控件修改回调",
+            widget_variant=ButtonVariant.DEFAULT,
+            modified_callback_enabled=True,
+            modified_callback=mdf_f.property_modified("e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"),
+            url="",
+            click_callback=lambda pr, ps: None,
+        )

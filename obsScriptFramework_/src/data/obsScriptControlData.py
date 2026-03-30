@@ -1,4 +1,4 @@
-"""控件后台属性默认模版"""
+"""控件后台属性默认模版(定量)"""
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal, Any, Union, Optional, Callable, Dict, List

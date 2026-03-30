@@ -1,4 +1,4 @@
-
+"""控件管理框架"""
 from collections import OrderedDict as PyOrderedDict
 from typing import Set
 try:

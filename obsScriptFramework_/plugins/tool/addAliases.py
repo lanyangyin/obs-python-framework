@@ -10,14 +10,18 @@ def add_aliases(*aliases):
     return decorator
 
 class AliasMeta(type):
-    """
-    元类，用于自动创建别名方法
-    """
+    """元类，用于自动创建别名方法（支持staticmethod和classmethod）"""
     def __new__(cls, name, bases, attrs):
-        # 遍历所有属性，查找被装饰的方法
         for attr_name, attr_value in list(attrs.items()):
-            if callable(attr_value) and hasattr(attr_value, '_aliases'):
-                # 为每个别名创建方法
+            # 处理 staticmethod 和 classmethod
+            if isinstance(attr_value, (staticmethod, classmethod)):
+                # 提取原始函数
+                original = attr_value.__func__
+                if hasattr(original, '_aliases'):
+                    for alias in original._aliases:
+                        # 将别名也设置为相同类型的描述器
+                        attrs[alias] = attr_value
+            elif callable(attr_value) and hasattr(attr_value, '_aliases'):
                 for alias in attr_value._aliases:
                     attrs[alias] = attr_value
         return super().__new__(cls, name, bases, attrs)
