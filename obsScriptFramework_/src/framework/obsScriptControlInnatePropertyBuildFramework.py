@@ -1,3 +1,4 @@
+"""为控件管理器中的控件添加控件及其天赋属性"""
 # 使用正确的相对导入（从 framework 到 data，再到其他需要的模块）
 from ..data.obsScriptGlobalVariable import ObsScriptGlobalVariable
 from ..data.obsScriptControlData import (
@@ -44,8 +45,8 @@ def build_controls(
             long_description="允许执行控件修改回调",
             widget_variant=ButtonVariant.DEFAULT,
             modified_callback_enabled=True,
-            modified_callback=mdf_f.property_modified("e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"),
-            url="",
+            modified_callback=mdf_f.property_modified("e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+                                                      None),
             click_callback=lambda pr, ps: None,
         )
 
@@ -66,7 +67,7 @@ def build_controls(
         del kwargs["control_name"]
 
         if kwargs["modified_callback_enabled"]:
-            kwargs["modified_callback"] = mdf_f.property_modified(control_name)
+            kwargs["modified_callback"] = mdf_f.property_modified(control_name, kwargs["modified_callback"])
 
         if kwargs.get("click_callback", False):
             kwargs["click_callback"] = btn_f.select(kwargs["click_callback"])
@@ -112,7 +113,7 @@ def build_controls(
             long_description="禁止执行控件修改回调",
             widget_variant=ButtonVariant.DEFAULT,
             modified_callback_enabled=True,
-            modified_callback=mdf_f.property_modified("e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"),
-            url="",
+            modified_callback=mdf_f.property_modified("e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+                                                      None),
             click_callback=lambda pr, ps: None,
         )

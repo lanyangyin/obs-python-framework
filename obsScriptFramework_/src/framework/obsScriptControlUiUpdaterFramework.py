@@ -137,7 +137,7 @@ class UIUpdater:
             if (w.min_val != obs.obs_property_int_min(w.obj) or
                     w.max_val != obs.obs_property_int_max(w.obj) or
                     w.step != obs.obs_property_int_step(w.obj)):
-                obs.obs_property_int_set_limits(w.obj, w.min_val, w.max_val, w.step)
+                obs.obs_property_int_set_limits(w.obj, int(w.min_val), int(w.max_val), int(w.step))
             # 同步值
             if obs.obs_data_get_int(self.script_settings, w.control_name) != w.value:
                 obs.obs_data_set_int(self.script_settings, w.control_name, w.value)

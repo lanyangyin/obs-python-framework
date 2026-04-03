@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 
-class classproperty:
+class ClassProperty:
     """类属性装饰器，允许像实例属性一样访问类方法"""
 
     def __init__(self, fget):
@@ -30,7 +30,7 @@ class ObsScriptGlobalVariable:
     """数据文件存放文件夹路径"""
     description_filename: str = "obsScriptDescription.html"
     """脚本介绍文件名称"""
-    @classproperty
+    @ClassProperty
     def description(self) -> str:
         """脚本介绍"""
         try:
@@ -41,13 +41,13 @@ class ObsScriptGlobalVariable:
 
     control_data_csv_filename: str = "widgetData_.csv"
     """控件数据csv文件名"""
-    @classproperty
+    @ClassProperty
     def control_data_csv_filepath(self) -> str:
         return str(self.__data_dir_path / self.control_data_csv_filename)
 
     property_modified_callback_allow_execution: bool = True
 
-    Log_manager: Any = None
+    Log_manager = None
     """日志管理器"""
     log_folder_name:str = "LOG"
     """保存日志文件的文件夹名称"""

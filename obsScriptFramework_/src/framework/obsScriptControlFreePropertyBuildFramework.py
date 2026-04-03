@@ -21,13 +21,13 @@ def apply_user_properties(
         all_props_mapping: 计算出的控件属性组名称到控件标识名列表的映射字典
     """
     # 确定需要更新控件的映射
-    if all_props_mapping is not None:
+    if all_props_mapping is None:
         all_props_mapping = control_manager.get_props_mapping()
 
+    fold_props_name = cds.get_common_group_fold()
     # 遍历所有控件数据，填充用户属性
     for controls_data in control_property_table_dictionary["all_controls"]:
-        props_name = controls_data["property_name"]
-        fold_props_name = cds.get_common_group_fold()
+        props_name = controls_data["props_name"]
         if props_name in fold_props_name:
             continue
         if props_name in all_props_mapping:
@@ -44,9 +44,9 @@ def apply_user_properties(
                 # 遍历所有自由属性，调用对应的回调函数获取值并设置
                 for control_properties_name in control_properties:
                     control_property_function_name = control_properties[control_properties_name]
-                    if hasattr(cds, control_property_function_name):
+                    if hasattr(cds, str(control_property_function_name)):
                         get_property_function = getattr(cds, control_property_function_name)
-                        control_property_value = get_property_function()
+                        control_property_value = get_property_function(control_name=control_name)
                         setattr(control_manager_category_object, control_properties_name, control_property_value)
 
     return all_props_mapping

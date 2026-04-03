@@ -13,7 +13,10 @@ script_config_folder = script_file_dir.joinpath(script_file_name + "_")
 """脚本配置文件夹路径"""
 os.makedirs(script_config_folder, exist_ok=True)  # 新建脚本配置文件夹
 sys.path.insert(0, f'{script_config_folder}')  # 将脚本配置文件夹也加入环境用来导入包
-try:  # 导入脚本配置文件夹中的包
+ImportSuccess = (False, None)
+
+try:
+    # 尝试从脚本配置文件夹导入（生产环境）
     from src.tool.LogManager import LogManager
     from src.tool.scriptCsv2Json import ControlTemplateParser
     from src.tool.CommonDataManager import CommonDataManager
@@ -29,31 +32,34 @@ try:  # 导入脚本配置文件夹中的包
     from src.framework.obsScriptControlFreePropertyBuildFramework import apply_user_properties
     from src.framework.obsScriptModifiedFramework import ModifiedFunction
     from src.framework.obsTriggerFrontendEventFramework import TriggerFrontendEvent
+    from src.framework.obsSciptButtonFunctionFramework import ObsScriptButtonFunction  # 确保两个块一致
     ImportSuccess = (True, None)
-except ImportError as e:
-    ImportSuccess = (False, str(e.msg))
-    obs.script_log(obs.LOG_ERROR, str(e.msg))
 
-try:  # 开发测试用
-    from obsScriptFramework_.src.tool.LogManager import LogManager
-    from obsScriptFramework_.src.tool.scriptCsv2Json import ControlTemplateParser
-    from obsScriptFramework_.src.tool.CommonDataManager import CommonDataManager
-    from obsScriptFramework_.src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
-    from obsScriptFramework_.src.data.obsScriptControlData import WidgetCategory
-    from obsScriptFramework_.src.data.obsScriptControlData import (CheckBoxVariant, DigitalBoxVariant, TextBoxVariant,
-                                                                   ButtonVariant, ComboBoxVariant, PathBoxVariant,
-                                                                   ColorBoxVariant, FontBoxVariant, ListBoxVariant,
-                                                                   GroupVariant)
-    from obsScriptFramework_.plugins.ButtonFunction import BtnFunction
-    from obsScriptFramework_.plugins.ControlFunction import ControlDataSetFunction
-    from obsScriptFramework_.src.framework.obsScriptControlDataFramework import get_control_manager
-    from obsScriptFramework_.src.framework.obsSciptButtonFunctionFramework import ObsScriptButtonFunctionFramework
-    from obsScriptFramework_.src.framework.obsScriptControlInnatePropertyBuildFramework import build_controls
-    from obsScriptFramework_.src.framework.obsScriptControlFreePropertyBuildFramework import apply_user_properties
-    from obsScriptFramework_.src.framework.obsScriptModifiedFramework import ModifiedFunction
-    from obsScriptFramework_.src.framework.obsTriggerFrontendEventFramework import TriggerFrontendEvent
 except ImportError:
-    pass
+    # 若失败，尝试从开发测试路径导入
+    try:
+        from obsScriptFramework_.src.tool.LogManager import LogManager
+        from obsScriptFramework_.src.tool.scriptCsv2Json import ControlTemplateParser
+        from obsScriptFramework_.src.tool.CommonDataManager import CommonDataManager
+        from obsScriptFramework_.src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
+        from obsScriptFramework_.src.data.obsScriptControlData import WidgetCategory
+        from obsScriptFramework_.src.data.obsScriptControlData import (CheckBoxVariant, DigitalBoxVariant, TextBoxVariant,
+                                                                       ButtonVariant, ComboBoxVariant, PathBoxVariant,
+                                                                       ColorBoxVariant, FontBoxVariant, ListBoxVariant,
+                                                                       GroupVariant)
+        from obsScriptFramework_.plugins.ButtonFunction import BtnFunction
+        from obsScriptFramework_.plugins.ControlFunction import ControlDataSetFunction
+        from obsScriptFramework_.src.framework.obsScriptControlDataFramework import get_control_manager
+        from obsScriptFramework_.src.framework.obsSciptButtonFunctionFramework import ObsScriptButtonFunction
+        from obsScriptFramework_.src.framework.obsScriptControlInnatePropertyBuildFramework import build_controls
+        from obsScriptFramework_.src.framework.obsScriptControlFreePropertyBuildFramework import apply_user_properties
+        from obsScriptFramework_.src.framework.obsScriptModifiedFramework import ModifiedFunction
+        from obsScriptFramework_.src.framework.obsTriggerFrontendEventFramework import TriggerFrontendEvent
+        ImportSuccess = (True, None)
+
+    except ImportError as e:
+        ImportSuccess = (False, str(e.msg))
+        obs.script_log(obs.LOG_ERROR, str(e.msg))
 
 
 def script_defaults(settings):  # 设置其默认值
@@ -64,32 +70,45 @@ def script_defaults(settings):  # 设置其默认值
     # 包载入判断
     if not ImportSuccess[0]:
         return
-    # 控件系统属性常用设置文件路径
-    ObsScriptGlobalVariable.control_system_properties_common_settings_file_path = script_config_folder / "sys_common_config.json"
     # 脚本设置体
     ObsScriptGlobalVariable.settings = settings
+    # 控件系统属性常用设置文件路径
+    ObsScriptGlobalVariable.control_system_properties_common_settings_file_path = script_config_folder / "sys_common_config.json"
     # 日志管理器
     ObsScriptGlobalVariable.Log_manager = LogManager(script_config_folder / ObsScriptGlobalVariable.log_folder_name)
     # 控件管理器
     ObsScriptGlobalVariable.control_manager = get_control_manager()
     # 控件属性文档转换器
     ObsScriptGlobalVariable.control_parser = ControlTemplateParser()
+    # 控件系统属性常用设置属性
+    ObsScriptGlobalVariable.sys_c_d_m = CommonDataManager(ObsScriptGlobalVariable.control_system_properties_common_settings_file_path)
     # 按钮回调函数类
-    ObsScriptGlobalVariable.btn = BtnFunction(Log_manager=ObsScriptGlobalVariable.Log_manager)
+    ObsScriptGlobalVariable.btn = BtnFunction(
+        Log_manager=ObsScriptGlobalVariable.Log_manager,
+        sys_c_d_m=ObsScriptGlobalVariable.sys_c_d_m,
+        control_manager=ObsScriptGlobalVariable.control_manager
+    )
     # 控件获取属性函数类
-    ObsScriptGlobalVariable.cds = ControlDataSetFunction(a_s_g_v=ObsScriptGlobalVariable)
+    ObsScriptGlobalVariable.cds = ControlDataSetFunction(
+        sys_c_d_m=ObsScriptGlobalVariable.sys_c_d_m,
+        control_manager=ObsScriptGlobalVariable.control_manager
+    )
     # 前端事件触发管理器
-    ObsScriptGlobalVariable.t_f_event = TriggerFrontendEvent(ObsScriptGlobalVariable.btn, a_s_g_v=ObsScriptGlobalVariable)
+    ObsScriptGlobalVariable.t_f_event = TriggerFrontendEvent(
+        BtnFunction=ObsScriptGlobalVariable.btn,
+        a_s_g_v=ObsScriptGlobalVariable
+    )
     # 按钮回调函数管理器
-    ObsScriptGlobalVariable.btn_f = ObsScriptButtonFunctionFramework(ObsScriptGlobalVariable.btn, ObsScriptGlobalVariable.Log_manager)
+    ObsScriptGlobalVariable.btn_f = ObsScriptButtonFunction(
+        BtnFunction=ObsScriptGlobalVariable.btn,
+        log=ObsScriptGlobalVariable.Log_manager
+    )
     # 控件变动回调函数管理器
     ObsScriptGlobalVariable.mdf_f = ModifiedFunction(ObsScriptGlobalVariable.btn, a_s_g_v=ObsScriptGlobalVariable)
 
-    # 控件系统属性常用设置属性
-    ObsScriptGlobalVariable.sys_c_d_m = CommonDataManager(ObsScriptGlobalVariable.control_system_properties_common_settings_file_path)
-    # 控件属性表字典 
+    # 控件属性表字典
     ObsScriptGlobalVariable.control_property_table_dictionary = ObsScriptGlobalVariable.control_parser.parse_csv(
-        ObsScriptGlobalVariable.control_data_csv_filepath,
+        csv_path=ObsScriptGlobalVariable.control_data_csv_filepath,
         initial_props_name=ObsScriptGlobalVariable.control_manager.get_basic_group().group_props_name
     )
 
@@ -106,7 +125,8 @@ def script_defaults(settings):  # 设置其默认值
     apply_user_properties(
         control_manager=ObsScriptGlobalVariable.control_manager,
         control_property_table_dictionary=ObsScriptGlobalVariable.control_property_table_dictionary,
-        cds=ObsScriptGlobalVariable.cds
+        cds=ObsScriptGlobalVariable.cds,
+        all_props_mapping=None
     )
 
 def script_description():

@@ -271,7 +271,7 @@ class ButtonData(ControlBaseData):
     """📵🥚控件的基本类型"""
     widget_variant: ButtonVariant = ButtonVariant.DEFAULT
     """📵🥚OBS 按钮类型常量。"""
-    callback: Optional[Callable[[Any, Any], bool]] = None
+    click_callback: Optional[Callable[[Any, Any], bool]] = None
     """📵🥚按钮被点击时触发的回调函数。"""
     url: str = ""
     """📵🥚仅当 widget_variant 为 OBS_BUTTON_URL 时有效的跳转链接。"""
