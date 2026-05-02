@@ -75,7 +75,7 @@ def script_defaults(settings):  # 设置其默认值
     # # 控件系统属性常用设置文件路径
     # ObsScriptGlobalData.control_system_properties_common_settings_filepath = script_config_folder / ObsScriptGlobalData.control_system_properties_common_settings_filename
     # 日志管理器
-    ObsScriptGlobalManager.Log_manager = LogManager(script_config_folder / ObsScriptGlobalData.log_folder_name)
+    ObsScriptGlobalManager.Log_manager = LogManager(ObsScriptGlobalData.log_folder_path)
     # 控件管理器
     ObsScriptGlobalManager.control_manager = get_control_manager()
     # 控件属性文档转换器
