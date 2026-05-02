@@ -20,7 +20,7 @@ try:
     from src.tool.LogManager import LogManager
     from src.tool.scriptCsv2Json import ControlTemplateParser
     from src.tool.CommonDataManager import CommonDataManager
-    from src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
+    from src.data.obsScriptGlobalVariable import ObsScriptGlobalData, ObsScriptGlobalManager
     from src.data.obsScriptControlData import WidgetCategory
     from src.data.obsScriptControlData import (CheckBoxVariant, DigitalBoxVariant, TextBoxVariant, ButtonVariant,
                                                ComboBoxVariant, PathBoxVariant, ColorBoxVariant, FontBoxVariant,
@@ -41,7 +41,7 @@ except ImportError:
         from obsScriptFramework_.src.tool.LogManager import LogManager
         from obsScriptFramework_.src.tool.scriptCsv2Json import ControlTemplateParser
         from obsScriptFramework_.src.tool.CommonDataManager import CommonDataManager
-        from obsScriptFramework_.src.data.obsScriptGlobalVariable import ObsScriptGlobalVariable
+        from obsScriptFramework_.src.data.obsScriptGlobalVariable import ObsScriptGlobalData, ObsScriptGlobalManager
         from obsScriptFramework_.src.data.obsScriptControlData import WidgetCategory
         from obsScriptFramework_.src.data.obsScriptControlData import (CheckBoxVariant, DigitalBoxVariant, TextBoxVariant,
                                                                        ButtonVariant, ComboBoxVariant, PathBoxVariant,
@@ -71,61 +71,63 @@ def script_defaults(settings):  # 设置其默认值
     if not ImportSuccess[0]:
         return
     # 脚本设置体
-    ObsScriptGlobalVariable.settings = settings
-    # 控件系统属性常用设置文件路径
-    ObsScriptGlobalVariable.control_system_properties_common_settings_file_path = script_config_folder / "sys_common_config.json"
+    ObsScriptGlobalData.settings = settings
+    # # 控件系统属性常用设置文件路径
+    # ObsScriptGlobalData.control_system_properties_common_settings_filepath = script_config_folder / ObsScriptGlobalData.control_system_properties_common_settings_filename
     # 日志管理器
-    ObsScriptGlobalVariable.Log_manager = LogManager(script_config_folder / ObsScriptGlobalVariable.log_folder_name)
+    ObsScriptGlobalManager.Log_manager = LogManager(script_config_folder / ObsScriptGlobalData.log_folder_name)
     # 控件管理器
-    ObsScriptGlobalVariable.control_manager = get_control_manager()
+    ObsScriptGlobalManager.control_manager = get_control_manager()
     # 控件属性文档转换器
-    ObsScriptGlobalVariable.control_parser = ControlTemplateParser()
+    ObsScriptGlobalManager.control_parser_manager = ControlTemplateParser()
     # 控件系统属性常用设置属性
-    ObsScriptGlobalVariable.sys_c_d_m = CommonDataManager(ObsScriptGlobalVariable.control_system_properties_common_settings_file_path)
+    ObsScriptGlobalManager.sys_common_data_manager = CommonDataManager(filepath=ObsScriptGlobalData.control_system_properties_common_settings_filepath)
     # 按钮回调函数类
-    ObsScriptGlobalVariable.btn = BtnFunction(
-        Log_manager=ObsScriptGlobalVariable.Log_manager,
-        sys_c_d_m=ObsScriptGlobalVariable.sys_c_d_m,
-        control_manager=ObsScriptGlobalVariable.control_manager
+    ObsScriptGlobalData.btn = BtnFunction(
+        Log_manager=ObsScriptGlobalManager.Log_manager,
+        sys_c_d_m=ObsScriptGlobalManager.sys_common_data_manager,
+        control_manager=ObsScriptGlobalManager.control_manager
     )
     # 控件获取属性函数类
-    ObsScriptGlobalVariable.cds = ControlDataSetFunction(
-        sys_c_d_m=ObsScriptGlobalVariable.sys_c_d_m,
-        control_manager=ObsScriptGlobalVariable.control_manager
+    ObsScriptGlobalData.cds = ControlDataSetFunction(
+        sys_c_d_m=ObsScriptGlobalManager.sys_common_data_manager,
+        control_manager=ObsScriptGlobalManager.control_manager
     )
     # 前端事件触发管理器
-    ObsScriptGlobalVariable.t_f_event = TriggerFrontendEvent(
-        BtnFunction=ObsScriptGlobalVariable.btn,
-        a_s_g_v=ObsScriptGlobalVariable
+    ObsScriptGlobalManager.trigger_front_event_manager = TriggerFrontendEvent(
+        BtnFunction=ObsScriptGlobalData.btn,
+        a_s_g_v=ObsScriptGlobalData
     )
     # 按钮回调函数管理器
-    ObsScriptGlobalVariable.btn_f = ObsScriptButtonFunction(
-        BtnFunction=ObsScriptGlobalVariable.btn,
-        log=ObsScriptGlobalVariable.Log_manager
+    ObsScriptGlobalManager.button_function_manager = ObsScriptButtonFunction(
+        BtnFunction=ObsScriptGlobalData.btn,
+        log=ObsScriptGlobalManager.Log_manager
     )
     # 控件变动回调函数管理器
-    ObsScriptGlobalVariable.mdf_f = ModifiedFunction(ObsScriptGlobalVariable.btn, a_s_g_v=ObsScriptGlobalVariable)
+    ObsScriptGlobalData.mdf_f = ModifiedFunction(ObsScriptGlobalData.btn, a_s_g_v=ObsScriptGlobalData)
 
     # 控件属性表字典
-    ObsScriptGlobalVariable.control_property_table_dictionary = ObsScriptGlobalVariable.control_parser.parse_csv(
-        csv_path=ObsScriptGlobalVariable.control_data_csv_filepath,
-        initial_props_name=ObsScriptGlobalVariable.control_manager.get_basic_group().group_props_name
+    ObsScriptGlobalData.control_property_table_dictionary = ObsScriptGlobalManager.control_parser_manager.parse_csv_files(
+        attribute_def_path=ObsScriptGlobalData.control_attribute_definition_data_csv_filepath,
+        data_path=ObsScriptGlobalData.control_data_csv_filepath,
+        initial_props_name=ObsScriptGlobalManager.control_manager.get_basic_group().group_props_name
     )
 
     # 设定 天赋属性
     build_controls(
-        control_manager=ObsScriptGlobalVariable.control_manager,
-        control_property_table_dictionary=ObsScriptGlobalVariable.control_property_table_dictionary,
-        log_manager=ObsScriptGlobalVariable.Log_manager,
-        mdf_f=ObsScriptGlobalVariable.mdf_f,
-        btn_f=ObsScriptGlobalVariable.btn_f,
+        control_manager=ObsScriptGlobalManager.control_manager,
+        control_property_table_dictionary=ObsScriptGlobalData.control_property_table_dictionary,
+        log_manager=ObsScriptGlobalManager.Log_manager,
+        mdf_f=ObsScriptGlobalData.mdf_f,
+        btn_f=ObsScriptGlobalManager.button_function_manager,
     )
 
     # 设定控件用户属性
     apply_user_properties(
-        control_manager=ObsScriptGlobalVariable.control_manager,
-        control_property_table_dictionary=ObsScriptGlobalVariable.control_property_table_dictionary,
-        cds=ObsScriptGlobalVariable.cds,
+        log_manager=ObsScriptGlobalManager.Log_manager,
+        control_manager=ObsScriptGlobalManager.control_manager,
+        control_property_table_dictionary=ObsScriptGlobalData.control_property_table_dictionary,
+        cds=ObsScriptGlobalData.cds,
         all_props_mapping=None
     )
 
@@ -136,7 +138,7 @@ def script_description():
     # 包载入判断
     if not ImportSuccess[0]:
         return ImportSuccess[1]
-    return ObsScriptGlobalVariable.description
+    return ObsScriptGlobalData.description
 
 
 def script_load(settings):
@@ -148,8 +150,8 @@ def script_load(settings):
     # 包载入判断
     if not ImportSuccess[0]:
         return
-    ObsScriptGlobalVariable.Log_manager.log_info(f"{script_file_name} 加载成功")
-    obs.obs_frontend_add_event_callback(ObsScriptGlobalVariable.t_f_event.event_callback())
+    ObsScriptGlobalManager.Log_manager.log_info(f"{script_file_name} 加载成功")
+    obs.obs_frontend_add_event_callback(ObsScriptGlobalManager.trigger_front_event_manager.event_callback())
     pass
 
 
@@ -171,26 +173,26 @@ def script_properties():
     # 包载入判断
     if not ImportSuccess[0]:
         return None
-    ObsScriptGlobalVariable.Log_manager.log_info(f"生成控件")
+    ObsScriptGlobalManager.Log_manager.log_info(f"生成控件")
 
-    for props_name in ObsScriptGlobalVariable.control_manager.available_group_props_names:
-        ObsScriptGlobalVariable.Log_manager.log_info(f"构建属性集: {props_name}")
-        ObsScriptGlobalVariable.props_dict[props_name] = obs.obs_properties_create()
+    for props_name in ObsScriptGlobalManager.control_manager.available_group_props_names:
+        ObsScriptGlobalManager.Log_manager.log_info(f"构建属性集: {props_name}")
+        ObsScriptGlobalData.props_dict[props_name] = obs.obs_properties_create()
 
-    sorted_widgets = ObsScriptGlobalVariable.control_manager.get_widgets_by_load_order()
+    sorted_widgets = ObsScriptGlobalManager.control_manager.get_widgets_by_load_order()
     for w in sorted_widgets:
-        w.props = ObsScriptGlobalVariable.props_dict[w.props_name]
+        w.props = ObsScriptGlobalData.props_dict[w.props_name]
         if hasattr(w, "group_props_name"):
-            w.group_props = ObsScriptGlobalVariable.props_dict[w.group_props_name]
+            w.group_props = ObsScriptGlobalData.props_dict[w.group_props_name]
 
         # 获取按载入次序排序的所有控件列表
         if w.widget_category == WidgetCategory.CHECKBOX:
             # 添加复选框控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"复选框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"复选框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_bool(w.props, w.control_name, w.description)
         elif w.widget_category == WidgetCategory.DIGITALBOX:
             # 添加数字控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"数字框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"数字框控件: {w.control_name} 【{w.description}】")
             if w.widget_variant == DigitalBoxVariant.INT_SLIDER:
                 w.obj = obs.obs_properties_add_int_slider(
                     w.props, w.control_name, w.description, w.min_val, w.max_val, w.step
@@ -210,11 +212,11 @@ def script_properties():
             obs.obs_property_int_set_suffix(w.obj, w.suffix)
         elif w.widget_category == WidgetCategory.TEXTBOX:
             # 添加文本框控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"文本框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"文本框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_text(w.props, w.control_name, w.description, w.widget_variant.value)
         elif w.widget_category == WidgetCategory.BUTTON:
             # 添加按钮控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"按钮控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"按钮控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_button(
                 w.props, w.control_name, w.description, w.click_callback
             )
@@ -223,57 +225,57 @@ def script_properties():
                 obs.obs_property_button_set_url(w.obj, w.url)
         elif w.widget_category == WidgetCategory.COMBOBOX:
             # 添加组合框控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"组合框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"组合框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_list(
                 w.props, w.control_name, w.description, w.widget_variant.value, obs.OBS_COMBO_FORMAT_STRING
             )
         elif w.widget_category == WidgetCategory.PATHBOX:
             # 添加路径对话框控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"路径对话框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"路径对话框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_path(
                 w.props, w.control_name, w.description, w.widget_variant.value, w.filter_str, w.default_path
             )
         elif w.widget_category == WidgetCategory.COLORBOX:
             # 添加颜色对话框控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"颜色对话框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"颜色对话框控件: {w.control_name} 【{w.description}】")
             if w.widget_variant == ColorBoxVariant.COLOR:
                 w.obj = obs.obs_properties_add_color(w.props, w.control_name, w.description)
             elif w.widget_variant == ColorBoxVariant.ALPHA:
                 w.obj = obs.obs_properties_add_color_alpha(w.props, w.control_name, w.description)
         elif w.widget_category == WidgetCategory.FONTBOX:
             # 添加字体对话框控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"字体对话框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"字体对话框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_font(w.props, w.control_name, w.description)
         elif w.widget_category == WidgetCategory.LISTBOX:
             # 添加列表对话框控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"列表对话框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"列表对话框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_editable_list(
                 w.props, w.control_name, w.description, w.widget_variant.value, w.filter_str, w.default_path
             )
         elif w.widget_category == WidgetCategory.GROUP:
             # 分组框控件
-            ObsScriptGlobalVariable.Log_manager.log_info(f"分组框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_info(f"分组框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_group(
                 w.props, w.control_name, w.description, w.widget_variant.value, w.group_props
             )
             if w.widget_variant == GroupVariant.CHECKABLE:  # 如果分组框的派生类型是复选分组框
                 # 添加复选框控件作为折叠分组框
-                ObsScriptGlobalVariable.Log_manager.log_info(f"复选框控件: {w.control_name} 【{w.description}】")
+                ObsScriptGlobalManager.Log_manager.log_info(f"复选框控件: {w.control_name} 【{w.description}】")
                 w.fold_obj = obs.obs_properties_add_bool(w.props, w.control_name.encode().hex(), w.description)
 
         if w.long_description:
             obs.obs_property_set_long_description(w.obj, w.long_description)
 
         if w.modified_callback_enabled:
-            ObsScriptGlobalVariable.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
+            ObsScriptGlobalManager.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
             obs.obs_property_set_modified_callback(w.obj, w.modified_callback)
             if w.widget_variant == GroupVariant.CHECKABLE:  # 如果分组框的派生类型是复选分组框
-                ObsScriptGlobalVariable.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
+                ObsScriptGlobalManager.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
                 obs.obs_property_set_modified_callback(w.fold_obj, w.modified_callback)
     # GlobalVariableOfData.props_dict = props_dict
     # 更新UI界面数据#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*
     # update_ui_interface_data()
-    return ObsScriptGlobalVariable.props_dict[ObsScriptGlobalVariable.control_manager.get_basic_group().group_props_name]
+    return ObsScriptGlobalData.props_dict[ObsScriptGlobalManager.control_manager.get_basic_group().group_props_name]
 
     pass
 
@@ -302,7 +304,7 @@ def script_unload():
     # 包载入判断
     if not ImportSuccess[0]:
         return
-    ObsScriptGlobalVariable.Log_manager.flush()
+    ObsScriptGlobalManager.Log_manager.flush()
     pass
 
 

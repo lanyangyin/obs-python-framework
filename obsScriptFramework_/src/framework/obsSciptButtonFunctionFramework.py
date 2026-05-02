@@ -1,4 +1,4 @@
-"""按钮触发函数框架"""
+"""按钮单击函数框架"""
 from typing import Callable, Any
 
 

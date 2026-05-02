@@ -3,6 +3,7 @@
 # 保留原有的 build_controls 函数，并在其下方添加新函数
 
 def apply_user_properties(
+    log_manager,
     control_manager,
     control_property_table_dictionary,
     cds,
@@ -10,8 +11,9 @@ def apply_user_properties(
 ):
     """
     根据 CSV 中定义的控件自由属性，调用对应的回调函数填充控件对象属性。
-
+    拉取控件自由属性到控件管理器中
     参数：
+        log_manager: 日志管理器实例
         control_manager: 控件管理器实例
         control_property_table_dictionary: 包含控件定义的字典，必须包含键 "all_controls"
         cds: ControlDataSetFunction 实例，包含获取属性值的方法
@@ -20,6 +22,7 @@ def apply_user_properties(
     返回：
         all_props_mapping: 计算出的控件属性组名称到控件标识名列表的映射字典
     """
+
     # 确定需要更新控件的映射
     if all_props_mapping is None:
         all_props_mapping = control_manager.get_props_mapping()
@@ -29,6 +32,7 @@ def apply_user_properties(
     for controls_data in control_property_table_dictionary["all_controls"]:
         props_name = controls_data["props_name"]
         if props_name in fold_props_name:
+            log_manager.log_info(f'被折叠的控件：{controls_data["group_properties"]["group_1"]["control_name"]}')
             continue
         if props_name in all_props_mapping:
             control_name = controls_data["group_properties"]["group_1"]["control_name"]
@@ -36,6 +40,7 @@ def apply_user_properties(
                 # 合并公共自由属性和私有自由属性
                 control_properties = controls_data["group_properties"].get("group_3", {})
                 control_properties |= controls_data["group_properties"].get("group_4", {})
+                log_manager.log_info(f"拉取[{control_name}]自由属性：{control_properties}")
 
                 # 获取控件对象
                 control_manager_category = getattr(control_manager, controls_data["widget_category"].lower())
@@ -48,5 +53,12 @@ def apply_user_properties(
                         get_property_function = getattr(cds, control_property_function_name)
                         control_property_value = get_property_function(control_name=control_name)
                         setattr(control_manager_category_object, control_properties_name, control_property_value)
+                        log_manager.log_info(
+                            f"拉取[{control_name}]自由属性：{control_properties_name}|属性值获取回调函数名：{control_property_function_name}"
+                        )
+                    else:
+                        log_manager.log_error(
+                            f"❌拉取[{control_name}]自由属性：{control_properties_name}|属性值获取回调函数名：{control_property_function_name}"
+                        )
 
     return all_props_mapping

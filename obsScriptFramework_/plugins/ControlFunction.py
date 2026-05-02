@@ -25,7 +25,7 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
     @add_clear_cache
     def group_foldless_is(self, *args, **kwargs) -> bool:
         """
-        获取控件是否折叠
+        获取控件是否展开
         :param args:
         :param kwargs:
             control_name
@@ -48,6 +48,12 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
     @lru_cache(maxsize=None)
     @add_clear_cache
     def default_false(*args, **kwargs):
+        return False
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    @add_clear_cache
+    def test_checkBox_checked(*args, **kwargs):
         return False
 
     @staticmethod

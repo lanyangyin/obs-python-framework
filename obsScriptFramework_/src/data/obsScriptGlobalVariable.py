@@ -1,6 +1,7 @@
 """定义了一些脚本的全局变量"""
+import pathlib
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 
 class ClassProperty:
@@ -12,8 +13,9 @@ class ClassProperty:
     def __get__(self, obj, owner):
         return self.fget(owner)
 
-class ObsScriptGlobalVariable:
-    """脚本的全局变量"""
+
+class ObsScriptGlobalData:
+    """脚本的全局数据变量"""
     control_property_table_dictionary: dict[str, Any] = {}
     # update_widget_for_props_dict: dict[str, list[str]] = {}
     # """根据控件属性集更新控件"""
@@ -27,39 +29,79 @@ class ObsScriptGlobalVariable:
     """控件属性集的字典"""
 
     __data_dir_path = Path(__file__).parent
-    """数据文件存放文件夹路径"""
+    """
+    数据文件存放文件夹路径
+    ~/obsScriptFramework_/src/data
+    """
+
     description_filename: str = "obsScriptDescription.html"
     """脚本介绍文件名称"""
     @ClassProperty
     def description(self) -> str:
-        """脚本介绍"""
+        """
+        脚本介绍文件内容
+        ~/obsScriptFramework_/plugins/[脚本介绍文件名称]
+        """
         try:
-            with open(self.__data_dir_path / self.description_filename, encoding="utf-8") as f:
+            with open(self.__data_dir_path.parent.parent / "plugins" / self.description_filename, encoding="utf-8") as f:
                 return f.read()
         except FileNotFoundError as e:
             return str(e)
 
-    control_data_csv_filename: str = "widgetData_.csv"
-    """控件数据csv文件名"""
+    control_system_properties_common_settings_filename: str = "sys_common_config.json"
+    """系统常用数据配置文件名"""
+    @ClassProperty
+    def control_system_properties_common_settings_filepath(self) -> str:
+        """
+        系统常用数据配置文件路径
+        ~/obsScriptFramework_/[系统常用数据配置文件名]
+        """
+        return str(self.__data_dir_path.parent.parent / self.control_system_properties_common_settings_filename)
+
+    control_data_csv_filename: str = "widgetData.csv"
+    """控件数据的csv文件名"""
     @ClassProperty
     def control_data_csv_filepath(self) -> str:
+        """
+        控件数据的csv文件路径
+        ~/obsScriptFramework_/src/data/[控件数据的csv文件名]
+        """
         return str(self.__data_dir_path / self.control_data_csv_filename)
 
-    property_modified_callback_allow_execution: bool = True
+    control_attribute_definition_data_csv_filename: str = "widgetAttributeDefinitionData.csv"
+    """控件数据定义的csv文件名"""
+    @ClassProperty
+    def control_attribute_definition_data_csv_filepath(self) -> str:
+        """
+        控件数据定义的csv文件路径
+        ~/obsScriptFramework_/plugins/[控件数据定义的csv文件名]
+        """
+        return str(self.__data_dir_path.parent.parent / "plugins" / self.control_attribute_definition_data_csv_filename)
 
-    Log_manager = None
-    """日志管理器"""
+    property_modified_callback_allow_execution: bool = True
+    """属性修改回调执行许可"""
+
     log_folder_name:str = "LOG"
     """保存日志文件的文件夹名称"""
+
+
+class ObsScriptGlobalManager:
+    """脚本的全局管理器变量"""
+    Log_manager = None
+    """日志管理器"""
     control_manager: Any = None
     """控件管理器"""
-    control_parser: Any = None
+    control_parser_manager: Any = None
     """控件属性文档转换器"""
-    t_f_event = None
+    trigger_front_event_manager = None
     """前端事件触发管理器"""
-    btn_f = None
+    button_function_manager = None
     """按钮回调函数管理器"""
+    sys_common_data_manager = None
+    """系统常用数据管理器"""
+
 
 if __name__ == "__main__":
-    print(ObsScriptGlobalVariable.description_filename)
-    print(ObsScriptGlobalVariable.description)
+    print(ObsScriptGlobalData.description_filename)
+    print(ObsScriptGlobalData.description)
+    print(ObsScriptGlobalData.control_system_properties_common_settings_filepath)

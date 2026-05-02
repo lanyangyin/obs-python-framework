@@ -1,4 +1,4 @@
-"""按钮回调函数框架"""
+"""控件变动回调函数框架"""
 from typing import Callable, Any
 
 
