@@ -81,7 +81,10 @@ def build_controls(
         del kwargs["control_name"]
 
         if kwargs["modified_callback_enabled"]:
-            kwargs["modified_callback"] = mdf_f.property_modified(control_name, kwargs["modified_callback"])
+            def modified_callback():
+                pass
+                mdf_f.property_modified(control_name, kwargs["modified_callback"])
+            kwargs["modified_callback"] = modified_callback
 
         if kwargs.get("click_callback", False):
             kwargs["click_callback"] = btn_f.select(kwargs["click_callback"])

@@ -4,14 +4,14 @@ from typing import Callable, Any
 
 class ObsScriptButtonFunction:
 
-    def __init__(self, BtnFunction, log):
-        self.BtnFunction = BtnFunction
+    def __init__(self, BtnFunctions, log):
+        self.BtnFunctions = BtnFunctions
         self.log = log
 
     def select(self, button_name: str) -> Callable[[Any, Any], bool]:
         def build_bf(ps, p):
             try:
-                getattr(self.BtnFunction, button_name)(button_name)
+                getattr(self.BtnFunctions, button_name)(button_name)
             except AttributeError:
                 self.log.log_error(f"未找到名为【{button_name}】的回调函数")
             return True

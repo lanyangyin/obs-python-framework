@@ -83,36 +83,37 @@ def script_defaults(settings):  # 设置其默认值
     # 控件系统属性常用设置属性
     ObsScriptGlobalManager.sys_common_data_manager = CommonDataManager(filepath=ObsScriptGlobalData.control_system_properties_common_settings_filepath)
     # 按钮回调函数类
-    ObsScriptGlobalData.btn = BtnFunction(
+    ObsScriptGlobalData.BtnFunctions = BtnFunction(
         Log_manager=ObsScriptGlobalManager.Log_manager,
         sys_c_d_m=ObsScriptGlobalManager.sys_common_data_manager,
         control_manager=ObsScriptGlobalManager.control_manager
     )
     # 控件获取属性函数类
-    ObsScriptGlobalData.cds = ControlDataSetFunction(
+    ObsScriptGlobalData.ControlDataSetFunctions = ControlDataSetFunction(
         sys_c_d_m=ObsScriptGlobalManager.sys_common_data_manager,
         control_manager=ObsScriptGlobalManager.control_manager
     )
     # 前端事件触发管理器
     ObsScriptGlobalManager.trigger_front_event_manager = TriggerFrontendEvent(
-        BtnFunction=ObsScriptGlobalData.btn,
-        a_s_g_v=ObsScriptGlobalData
+        BtnFunctions=ObsScriptGlobalData.BtnFunctions,
+        log_manager=ObsScriptGlobalManager.Log_manager
     )
     # 按钮回调函数管理器
     ObsScriptGlobalManager.button_function_manager = ObsScriptButtonFunction(
-        BtnFunction=ObsScriptGlobalData.btn,
+        BtnFunctions=ObsScriptGlobalData.BtnFunctions,
         log=ObsScriptGlobalManager.Log_manager
     )
     # 控件变动回调函数管理器
-    ObsScriptGlobalData.mdf_f = ModifiedFunction(ObsScriptGlobalData.btn, a_s_g_v=ObsScriptGlobalData)
-
+    ObsScriptGlobalData.mdf_f = ModifiedFunction(
+        BtnFunctions=ObsScriptGlobalData.BtnFunctions,
+        log_manager=ObsScriptGlobalManager.Log_manager
+    )
     # 控件属性表字典
     ObsScriptGlobalData.control_property_table_dictionary = ObsScriptGlobalManager.control_parser_manager.parse_csv_files(
         attribute_def_path=ObsScriptGlobalData.control_attribute_definition_data_csv_filepath,
         data_path=ObsScriptGlobalData.control_data_csv_filepath,
         initial_props_name=ObsScriptGlobalManager.control_manager.get_basic_group().group_props_name
     )
-
     # 设定 天赋属性
     build_controls(
         control_manager=ObsScriptGlobalManager.control_manager,
@@ -121,13 +122,12 @@ def script_defaults(settings):  # 设置其默认值
         mdf_f=ObsScriptGlobalData.mdf_f,
         btn_f=ObsScriptGlobalManager.button_function_manager,
     )
-
     # 设定控件用户属性
     apply_user_properties(
         log_manager=ObsScriptGlobalManager.Log_manager,
         control_manager=ObsScriptGlobalManager.control_manager,
         control_property_table_dictionary=ObsScriptGlobalData.control_property_table_dictionary,
-        cds=ObsScriptGlobalData.cds,
+        ControlDataSetFunctions=ObsScriptGlobalData.ControlDataSetFunctions,
         all_props_mapping=None
     )
 

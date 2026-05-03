@@ -6,7 +6,7 @@ def apply_user_properties(
     log_manager,
     control_manager,
     control_property_table_dictionary,
-    cds,
+    ControlDataSetFunctions,
     all_props_mapping=None,
 ):
     """
@@ -16,7 +16,7 @@ def apply_user_properties(
         log_manager: 日志管理器实例
         control_manager: 控件管理器实例
         control_property_table_dictionary: 包含控件定义的字典，必须包含键 "all_controls"
-        cds: ControlDataSetFunction 实例，包含获取属性值的方法
+        ControlDataSetFunctions: ControlDataSetFunction 实例，包含获取属性值的方法
         update_widget_for_props_dict: 已有的需要更新控件的映射字典，如果为 None 则重新获取
 
     返回：
@@ -27,7 +27,7 @@ def apply_user_properties(
     if all_props_mapping is None:
         all_props_mapping = control_manager.get_props_mapping()
 
-    fold_props_name = cds.get_common_group_fold()
+    fold_props_name = ControlDataSetFunctions.get_common_group_fold()
     # 遍历所有控件数据，填充用户属性
     for controls_data in control_property_table_dictionary["all_controls"]:
         props_name = controls_data["props_name"]
@@ -49,8 +49,8 @@ def apply_user_properties(
                 # 遍历所有自由属性，调用对应的回调函数获取值并设置
                 for control_properties_name in control_properties:
                     control_property_function_name = control_properties[control_properties_name]
-                    if hasattr(cds, str(control_property_function_name)):
-                        get_property_function = getattr(cds, control_property_function_name)
+                    if hasattr(ControlDataSetFunctions, str(control_property_function_name)):
+                        get_property_function = getattr(ControlDataSetFunctions, control_property_function_name)
                         control_property_value = get_property_function(control_name=control_name)
                         setattr(control_manager_category_object, control_properties_name, control_property_value)
                         log_manager.log_info(
