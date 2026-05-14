@@ -284,7 +284,7 @@ class ComboBoxData(ControlBaseData):
     """📵🥚控件的基本类型"""
     widget_variant: ComboBoxVariant = ComboBoxVariant.LIST
     """📵🥚OBS 组合框类型常量。"""
-    display_text: str = ""  # 明确区分显示文本和值
+    label: str = ""  # 明确区分显示文本和值
     """当前显示在下拉框中的文本。"""
     value: str = ""
     """当前选中项对应的内部值。"""

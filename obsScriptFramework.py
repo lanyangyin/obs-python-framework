@@ -104,7 +104,7 @@ def script_defaults(settings):  # 设置其默认值
         log=ObsScriptGlobalManager.Log_manager
     )
     # 控件变动回调函数管理器
-    ObsScriptGlobalData.mdf_f = ModifiedFunction(
+    ObsScriptGlobalData.modified_function_manager = ModifiedFunction(
         BtnFunctions=ObsScriptGlobalData.BtnFunctions,
         log_manager=ObsScriptGlobalManager.Log_manager
     )
@@ -119,8 +119,9 @@ def script_defaults(settings):  # 设置其默认值
         control_manager=ObsScriptGlobalManager.control_manager,
         control_property_table_dictionary=ObsScriptGlobalData.control_property_table_dictionary,
         log_manager=ObsScriptGlobalManager.Log_manager,
-        mdf_f=ObsScriptGlobalData.mdf_f,
-        btn_f=ObsScriptGlobalManager.button_function_manager,
+        sys_common_data_manager=ObsScriptGlobalManager.sys_common_data_manager,
+        modified_function_manager=ObsScriptGlobalData.modified_function_manager,
+        button_function_manager=ObsScriptGlobalManager.button_function_manager
     )
     # 设定控件用户属性
     apply_user_properties(
@@ -261,7 +262,7 @@ def script_properties():
             if w.widget_variant == GroupVariant.CHECKABLE:  # 如果分组框的派生类型是复选分组框
                 # 添加复选框控件作为折叠分组框
                 ObsScriptGlobalManager.Log_manager.log_info(f"复选框控件: {w.control_name} 【{w.description}】")
-                w.fold_obj = obs.obs_properties_add_bool(w.props, w.control_name.encode().hex(), w.description)
+                w.folding_control_obj = obs.obs_properties_add_bool(w.props, w.control_name.encode().hex(), w.description + "[⏫]")
 
         if w.long_description:
             obs.obs_property_set_long_description(w.obj, w.long_description)
@@ -271,7 +272,7 @@ def script_properties():
             obs.obs_property_set_modified_callback(w.obj, w.modified_callback)
             if w.widget_variant == GroupVariant.CHECKABLE:  # 如果分组框的派生类型是复选分组框
                 ObsScriptGlobalManager.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
-                obs.obs_property_set_modified_callback(w.fold_obj, w.modified_callback)
+                obs.obs_property_set_modified_callback(w.folding_control_obj, w.modified_callback)
     # GlobalVariableOfData.props_dict = props_dict
     # 更新UI界面数据#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*
     # update_ui_interface_data()

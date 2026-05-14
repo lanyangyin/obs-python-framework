@@ -64,9 +64,9 @@ class ObsScriptGlobalData:
     def control_data_csv_filepath(self) -> str:
         """
         控件数据的csv文件路径
-        ~/obsScriptFramework_/src/data/[控件数据的csv文件名]
+        ~/obsScriptFramework_/plugins/[控件数据的csv文件名]
         """
-        return str(self.__data_dir_path / self.control_data_csv_filename)
+        return str(self.__data_dir_path.parent.parent / "plugins" / self.control_data_csv_filename)
 
     description_filename: str = "obsScriptDescription.html"
     """脚本介绍文件名称"""
@@ -88,9 +88,9 @@ class ObsScriptGlobalData:
     def control_attribute_definition_data_csv_filepath(self) -> str:
         """
         控件数据定义的csv文件路径
-        ~/obsScriptFramework_/plugins/[控件数据定义的csv文件名]
+        ~/obsScriptFramework_/src/data/[控件数据定义的csv文件名]
         """
-        return str(self.__data_dir_path.parent.parent / "plugins" / self.control_attribute_definition_data_csv_filename)
+        return str(self.__data_dir_path / self.control_attribute_definition_data_csv_filename)
 
 
 class ObsScriptGlobalManager:

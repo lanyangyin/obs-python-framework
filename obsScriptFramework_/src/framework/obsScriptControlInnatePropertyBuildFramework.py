@@ -23,8 +23,9 @@ def build_controls(
     control_manager: Any,
     control_property_table_dictionary: Dict[str, Any],
     log_manager: Any,
-    mdf_f: Any,
-    btn_f: Any,
+    sys_common_data_manager: Any,
+    modified_function_manager: Any,
+    button_function_manager: Any,
 ) -> None:
     """
     根据提供的配置构建所有控件。
@@ -33,7 +34,7 @@ def build_controls(
         control_manager: 控件管理器实例
         control_property_table_dictionary: 包含控件定义的字典，必须包含键 "all_controls"
         log_manager: 日志管理器实例
-        mdf_f: 修改回调函数管理器
+        modified_function_manager: 修改回调函数管理器
         button_function_manager: 按钮回调函数管理器
     """
     def pull_innate_attribute_data_log_of_control(control_name, attribute):
@@ -53,7 +54,7 @@ def build_controls(
             long_description="允许执行控件修改回调",
             widget_variant=ButtonVariant.DEFAULT,
             modified_callback_enabled=True,
-            modified_callback=mdf_f.property_modified(
+            modified_callback=modified_function_manager.property_modified(
                 "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
                 None
             ),
@@ -81,13 +82,28 @@ def build_controls(
         del kwargs["control_name"]
 
         if kwargs["modified_callback_enabled"]:
-            def modified_callback():
-                pass
-                mdf_f.property_modified(control_name, kwargs["modified_callback"])
+            if controls_data["widget_category"] == "GROUP" and kwargs["widget_variant"] == "CHECKABLE":
+                # 内置的可折叠分组框中折叠动作的数据变动实现
+                modified_callback_name = kwargs["modified_callback"]
+                def modified_callback(ps, p, st=None, control_name=control_name, modified_callback_name=modified_callback_name):
+                    widget = control_manager.get_widget_by_control_name(control_name)
+                    group_props_name = widget.group_props_name
+                    widget_visibility_less_list = sys_common_data_manager.get_data("system", "group_not_checked")
+                    if not widget_visibility_less_list:
+                        sys_common_data_manager.add_data("system", "group_not_checked", group_props_name, 999)
+                    else:
+                        if group_props_name in widget_visibility_less_list:
+                            sys_common_data_manager.remove_data("system", "group_not_checked", group_props_name)
+                        else:
+                            sys_common_data_manager.add_data("system", "group_not_checked", group_props_name)
+                    modified_function_manager.property_modified(control_name, modified_callback_name)(ps, p, st)
+                    return True
+            else:
+                modified_callback = modified_function_manager.property_modified(control_name, kwargs["modified_callback"])
             kwargs["modified_callback"] = modified_callback
 
         if kwargs.get("click_callback", False):
-            kwargs["click_callback"] = btn_f.select(kwargs["click_callback"])
+            kwargs["click_callback"] = button_function_manager.select(kwargs["click_callback"])
 
         kwargs["widget_category"] = getattr(WidgetCategory, controls_data["widget_category"])
 
@@ -137,8 +153,8 @@ def build_controls(
             long_description="禁止执行控件修改回调",
             widget_variant=ButtonVariant.DEFAULT,
             modified_callback_enabled=True,
-            modified_callback=mdf_f.property_modified("e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-                                                      None),
+            modified_callback=modified_function_manager.property_modified("e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+                                                                          None),
             click_callback=lambda pr, ps: None,
         )
         pull_innate_attribute_data_log_of_control(

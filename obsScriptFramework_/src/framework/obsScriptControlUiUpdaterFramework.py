@@ -177,7 +177,7 @@ class UIUpdater:
             # 先将当前显示文本对应的项插入到索引 0
             found = False
             for item in w.items:
-                if item["label"] == w.display_text:
+                if item["label"] == w.label:
                     obs.obs_property_list_insert_string(w.obj, 0, item["label"], item["value"])
                     found = True
                 else:
@@ -204,3 +204,4 @@ class UIUpdater:
         if w.widget_variant is GroupVariant.CHECKABLE:
             if obs.obs_data_get_bool(self.script_settings, w.control_name) != w.checked:
                 obs.obs_data_set_bool(self.script_settings, w.control_name, w.checked)
+                obs.obs_data_set_bool(self.script_settings, w.control_name.encode().hex(), not w.checked)

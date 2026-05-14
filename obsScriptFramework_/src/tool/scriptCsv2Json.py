@@ -295,8 +295,8 @@ if __name__ == "__main__":
     parser = ControlTemplateParser()
 
     # 使用新的双文件解析方法
-    attribute_def_path = "../../plugins/widgetAttributeDefinitionData.csv"
-    data_path = "../data/widgetData.csv"
+    attribute_def_path = "../data/widgetAttributeDefinitionData.csv"
+    data_path = "../../plugins/widgetData.csv"
     result = parser.parse_csv_files(attribute_def_path, data_path, initial_props_name="props")
 
     # 导出为JSON

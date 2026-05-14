@@ -10,6 +10,119 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         self.sys_c_d_m = sys_c_d_m
         self.control_manager = control_manager
 
+    @staticmethod
+    def test_url_value():
+        v = "https://www.tcptest.cn/http"
+        return v
+
+    @staticmethod
+    def test_checked_value():
+        v = True
+        return v
+
+    @staticmethod
+    def test_min_val_value():
+        v = 0
+        return v
+
+    @staticmethod
+    def test_max_val_value():
+        v = 100
+        return v
+
+    @staticmethod
+    def test_step_value():
+        v = 1
+        return v
+
+    @staticmethod
+    def test_info_type_value():
+        v = "NORMAL"
+        return v
+
+    @staticmethod
+    def test_text_value():
+        v = "这是一段文本测试"
+        return v
+
+    @staticmethod
+    def test_path_text_value():
+        v = "C:\\"
+        return v
+
+    @staticmethod
+    def test_label_value():
+        v = "这是组合框标签测试"
+        return v
+
+    @staticmethod
+    def test_value_value():
+        v = "这是组合框值测试"
+        return v
+
+    @staticmethod
+    def test_items_value():
+        v = {
+            "label":"这是组合框/列表框元素标签测试",
+            "value":"这是组合框/列表框元素值测试"
+        }
+        return v
+
+    @staticmethod
+    def test_color_alpha_value():
+        v = 0xFF
+        return v
+
+    @staticmethod
+    def test_color_red_value():
+        v = 0xFF
+        return v
+
+    @staticmethod
+    def test_color_green_value():
+        v = 0xFF
+        return v
+
+    @staticmethod
+    def test_color_blue_value():
+        v = 0xFF
+        return v
+
+    @staticmethod
+    def test_font_face_value():
+        v = "Kai"
+        return v
+
+    @staticmethod
+    def test_font_size_value():
+        v = 36
+        return v
+
+    @staticmethod
+    def test_font_style_value():
+        v = "Regular"
+        return v
+
+    @staticmethod
+    def test_font_bold_value():
+        v = False
+        return v
+
+    @staticmethod
+    def test_font_italic_value():
+        v = False
+        return v
+
+    @staticmethod
+    def test_font_underline_value():
+        v = False
+        return v
+
+    @staticmethod
+    def test_font_strikeout_value():
+        v = False
+        return v
+
     @lru_cache(maxsize=None)
     @add_clear_cache
     def get_common_group_fold(self, *args, **kwargs) -> set[str]:
