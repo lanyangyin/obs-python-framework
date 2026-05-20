@@ -17,6 +17,8 @@ class ClassProperty:
 class ObsScriptGlobalData:
     """脚本的全局数据变量"""
 
+    BtnFunctions = None
+    ControlDataSetFunctions = None
     control_property_table_dictionary: dict[str, Any] = {}
     # update_widget_for_props_dict: dict[str, list[str]] = {}
     # """根据控件属性集更新控件"""
@@ -107,6 +109,8 @@ class ObsScriptGlobalManager:
     """按钮回调函数管理器"""
     sys_common_data_manager = None
     """系统常用数据管理器"""
+    ControlUiUpdaterManager = None
+    """"""
 
 
 if __name__ == "__main__":

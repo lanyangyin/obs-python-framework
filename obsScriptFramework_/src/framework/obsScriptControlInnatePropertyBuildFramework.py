@@ -26,6 +26,7 @@ def build_controls(
     sys_common_data_manager: Any,
     modified_function_manager: Any,
     button_function_manager: Any,
+    control_ui_updater_manager: Any
 ) -> None:
     """
     根据提供的配置构建所有控件。
@@ -85,18 +86,31 @@ def build_controls(
             if controls_data["widget_category"] == "GROUP" and kwargs["widget_variant"] == "CHECKABLE":
                 # 内置的可折叠分组框中折叠动作的数据变动实现
                 modified_callback_name = kwargs["modified_callback"]
-                def modified_callback(ps, p, st=None, control_name=control_name, modified_callback_name=modified_callback_name):
-                    widget = control_manager.get_widget_by_control_name(control_name)
+                def modified_callback(ps, p, st=None, _control_name=control_name, _modified_callback_name=modified_callback_name):
+                    widget = control_manager.get_widget_by_control_name(_control_name)
+                    """获取控件管理器中的折叠分组框控件对象"""
                     group_props_name = widget.group_props_name
-                    widget_visibility_less_list = sys_common_data_manager.get_data("system", "group_not_checked")
-                    if not widget_visibility_less_list:
-                        sys_common_data_manager.add_data("system", "group_not_checked", group_props_name, 999)
+                    widget_visibility_less_list = sys_common_data_manager.get_data("system", "group_folded_props_names")
+                    """已折叠组的props_name的列表"""
+                    if not widget_visibility_less_list:  # 如果props_name在已折叠组的props_name的列表中就删除，不在就添加
+                        sys_common_data_manager.add_data("system", "group_folded_props_names", group_props_name, 999)
                     else:
                         if group_props_name in widget_visibility_less_list:
-                            sys_common_data_manager.remove_data("system", "group_not_checked", group_props_name)
+                            sys_common_data_manager.remove_data("system", "group_folded_props_names", group_props_name)
                         else:
-                            sys_common_data_manager.add_data("system", "group_not_checked", group_props_name)
-                    modified_function_manager.property_modified(control_name, modified_callback_name)(ps, p, st)
+                            sys_common_data_manager.add_data("system", "group_folded_props_names", group_props_name, 999)
+                    widget_visibility_less_list = sys_common_data_manager.get_data("system", "group_folded_props_names")
+                    widget.visible = widget.group_props_name not in widget_visibility_less_list
+                    widget.enabled = widget.group_props_name not in widget_visibility_less_list
+                    widget.checked = widget.group_props_name not in widget_visibility_less_list
+                    if not widget.checked:
+                        log_manager.log_info(f"折叠分组框{control_name}")
+                    update_widget_for_props_dict = {widget.props_name:[_control_name]}
+                    """props_name到控件control_name列表的映射字典"""
+                    control_ui_updater_manager.update(
+                        update_widget_for_props_dict=update_widget_for_props_dict
+                    )
+                    modified_function_manager.property_modified(_control_name, _modified_callback_name)(ps, p, st)
                     return True
             else:
                 modified_callback = modified_function_manager.property_modified(control_name, kwargs["modified_callback"])

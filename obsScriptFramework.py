@@ -30,8 +30,9 @@ try:
     from src.framework.obsScriptControlDataFramework import get_control_manager
     from src.framework.obsScriptControlInnatePropertyBuildFramework import build_controls
     from src.framework.obsScriptControlFreePropertyBuildFramework import apply_user_properties
-    from src.framework.obsScriptModifiedFramework import ModifiedFunction
+    from src.framework.obsScriptModifiedFunctionFramework import ModifiedFunction
     from src.framework.obsTriggerFrontendEventFramework import TriggerFrontendEvent
+    from src.framework.obsScriptControlUiUpdaterFramework import UIUpdater
     from src.framework.obsSciptButtonFunctionFramework import ObsScriptButtonFunction  # 确保两个块一致
     ImportSuccess = (True, None)
 
@@ -53,8 +54,9 @@ except ImportError:
         from obsScriptFramework_.src.framework.obsSciptButtonFunctionFramework import ObsScriptButtonFunction
         from obsScriptFramework_.src.framework.obsScriptControlInnatePropertyBuildFramework import build_controls
         from obsScriptFramework_.src.framework.obsScriptControlFreePropertyBuildFramework import apply_user_properties
-        from obsScriptFramework_.src.framework.obsScriptModifiedFramework import ModifiedFunction
+        from obsScriptFramework_.src.framework.obsScriptModifiedFunctionFramework import ModifiedFunction
         from obsScriptFramework_.src.framework.obsTriggerFrontendEventFramework import TriggerFrontendEvent
+        from obsScriptFramework_.src.framework.obsScriptControlUiUpdaterFramework import UIUpdater
         ImportSuccess = (True, None)
 
     except ImportError as e:
@@ -82,11 +84,17 @@ def script_defaults(settings):  # 设置其默认值
     ObsScriptGlobalManager.control_parser_manager = ControlTemplateParser()
     # 控件系统属性常用设置属性
     ObsScriptGlobalManager.sys_common_data_manager = CommonDataManager(filepath=ObsScriptGlobalData.control_system_properties_common_settings_filepath)
+    ObsScriptGlobalManager.ControlUiUpdaterManager = UIUpdater(
+        script_settings=ObsScriptGlobalData.settings,
+        control_manager=ObsScriptGlobalManager.control_manager,
+        Log_manager=ObsScriptGlobalManager.Log_manager
+    )
     # 按钮回调函数类
     ObsScriptGlobalData.BtnFunctions = BtnFunction(
         Log_manager=ObsScriptGlobalManager.Log_manager,
         sys_c_d_m=ObsScriptGlobalManager.sys_common_data_manager,
-        control_manager=ObsScriptGlobalManager.control_manager
+        control_manager=ObsScriptGlobalManager.control_manager,
+        control_ui_updater_manager=ObsScriptGlobalManager.ControlUiUpdaterManager
     )
     # 控件获取属性函数类
     ObsScriptGlobalData.ControlDataSetFunctions = ControlDataSetFunction(
@@ -121,7 +129,8 @@ def script_defaults(settings):  # 设置其默认值
         log_manager=ObsScriptGlobalManager.Log_manager,
         sys_common_data_manager=ObsScriptGlobalManager.sys_common_data_manager,
         modified_function_manager=ObsScriptGlobalData.modified_function_manager,
-        button_function_manager=ObsScriptGlobalManager.button_function_manager
+        button_function_manager=ObsScriptGlobalManager.button_function_manager,
+        control_ui_updater_manager=ObsScriptGlobalManager.ControlUiUpdaterManager
     )
     # 设定控件用户属性
     apply_user_properties(
@@ -257,11 +266,11 @@ def script_properties():
             # 分组框控件
             ObsScriptGlobalManager.Log_manager.log_info(f"分组框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_group(
-                w.props, w.control_name, w.description, w.widget_variant.value, w.group_props
+                w.props, w.control_name, w.description + f"{'[⏬]' if w.widget_variant == GroupVariant.CHECKABLE else ''}", w.widget_variant.value, w.group_props
             )
             if w.widget_variant == GroupVariant.CHECKABLE:  # 如果分组框的派生类型是复选分组框
                 # 添加复选框控件作为折叠分组框
-                ObsScriptGlobalManager.Log_manager.log_info(f"复选框控件: {w.control_name} 【{w.description}】")
+                ObsScriptGlobalManager.Log_manager.log_info(f"折叠分组框[复选框控件]: {w.control_name} 【{w.description}】")
                 w.folding_control_obj = obs.obs_properties_add_bool(w.props, w.control_name.encode().hex(), w.description + "[⏫]")
 
         if w.long_description:
@@ -275,7 +284,9 @@ def script_properties():
                 obs.obs_property_set_modified_callback(w.folding_control_obj, w.modified_callback)
     # GlobalVariableOfData.props_dict = props_dict
     # 更新UI界面数据#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*
-    # update_ui_interface_data()
+    ObsScriptGlobalManager.ControlUiUpdaterManager.update(
+        update_widget_for_props_dict=ObsScriptGlobalManager.control_manager.get_props_mapping()
+    )
     return ObsScriptGlobalData.props_dict[ObsScriptGlobalManager.control_manager.get_basic_group().group_props_name]
 
     pass

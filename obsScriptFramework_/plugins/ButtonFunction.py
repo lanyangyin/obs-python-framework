@@ -7,7 +7,7 @@ from .ControlFunction import ControlDataSetFunction
 from .tool.addAliases import add_aliases, AliasMeta
 
 class BtnFunction(metaclass=AliasMeta):
-    def __init__(self, Log_manager, sys_c_d_m, control_manager):
+    def __init__(self, Log_manager, sys_c_d_m, control_manager, control_ui_updater_manager):
         """
 
         :param Log_manager:
@@ -17,6 +17,7 @@ class BtnFunction(metaclass=AliasMeta):
         self.Log_manager = Log_manager
         self.sys_common_data_manager = sys_c_d_m
         self.control_manager = control_manager
+        self.control_ui_updater_manager = control_ui_updater_manager
 
     # def top(self, *args, **kwargs):
     #     """第一个控件的变动回调"""
@@ -43,4 +44,16 @@ class BtnFunction(metaclass=AliasMeta):
     @add_aliases("test_digitalBox")
     def test(self, *args, **kwargs):
         self.Log_manager.log_info("test")
+
+    def set_group_fold(self, *args, **kwargs):
+        """折叠分组框"""
+        control_name = kwargs["control_name"]
+        self.Log_manager.log_info(f"折叠分组框{control_name}")
+
+        update_widget_for_props_dict = self.control_manager.get_props_mapping()
+        self.control_ui_updater_manager.update(
+            update_widget_for_props_dict=update_widget_for_props_dict
+        )
+        return True
+
 

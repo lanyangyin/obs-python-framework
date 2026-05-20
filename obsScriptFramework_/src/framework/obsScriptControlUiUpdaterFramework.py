@@ -15,7 +15,7 @@ from ..data.obsScriptControlData import (
     TextBoxVariant,
     ComboBoxVariant,
     GroupVariant,
-    TextBoxInfoVariant,
+    TextBoxInfoVariant, ListBoxData, ColorBoxData, FontBoxData,
 )
 
 
@@ -30,26 +30,28 @@ class UIUpdater:
         script_settings: OBS 数据对象 (obs_data_t)，用于读写控件值。
     """
 
-    def __init__(self, script_settings: Any) -> None:
+    def __init__(self, script_settings: Any, control_manager: Any, Log_manager: Any) -> None:
         """
         初始化 UIUpdater 实例。
 
         Args:
+            control_manager: 包含控件列表和相关方法的对象，必须提供 get_widgets_by_load_order() 方法，
+                    返回一个由控件数据对象（如 CheckBoxData、DigitalBoxData 等）组成的列表。
             script_settings: OBS 数据对象，通常为 GlobalVariableOfData.script_settings。
         """
         self.script_settings = script_settings
+        self.control_manager = control_manager
+        self.Log_manager = Log_manager
 
-    def update(self, widget, update_widget_for_props_dict: Dict[str, List[str]]) -> bool:
+    def update(self, update_widget_for_props_dict: Dict[str, List[str]]) -> bool:
         """
         更新 UI 界面数据，使控件状态与内部数据模型同步。
 
-        遍历所有需要关注的控件（通过 widget.get_sorted_controls() 获取），
+        遍历所有需要关注的控件（通过 self.control_manager.get_widgets_by_load_order() 获取），
         根据预定义的配置（update_widget_for_props_dict）更新控件的可见性、
         启用状态以及当前值。同时将用户界面的改动写回到 script_settings 中。
 
         Args:
-            widget: 包含控件列表和相关方法的对象，必须提供 get_sorted_controls() 方法，
-                    返回一个由控件数据对象（如 CheckBoxData、DigitalBoxData 等）组成的列表。
             update_widget_for_props_dict: 字典，键为控件所属属性集名称（props_name），
                                            值为该属性集下需要动态更新的控件名称列表（control_name）。
 
@@ -61,20 +63,36 @@ class UIUpdater:
             - 本方法仅处理原有逻辑中涉及的控件类型（复选框、数字框、文本框、按钮、组合框、路径框、分组框），
               颜色框、字体框、列表框暂不处理（可后续扩展）。
         """
-        for w in widget.get_sorted_controls():
+        for w in self.control_manager.get_widgets_by_load_order():
             # 检查当前控件是否需要动态更新
             if w.props_name not in update_widget_for_props_dict:
                 continue
-            if w.control_name not in update_widget_for_props_dict[w.props_name]:
+            elif w.control_name not in update_widget_for_props_dict[w.props_name]:
                 continue
 
+            self.Log_manager.log_info(
+                f"{w.control_name}可见性{obs.obs_property_visible(w.obj)}⏩{w.visible}"
+            )
             # 更新可见性
             if obs.obs_property_visible(w.obj) != w.visible:
                 obs.obs_property_set_visible(w.obj, w.visible)
+            if w.widget_variant == GroupVariant.CHECKABLE:
+                self.Log_manager.log_info(
+                    f"{w.control_name}折叠判断{obs.obs_property_visible(w.obj)}⏩{w.visible}"
+                )
+                obs.obs_property_set_visible(w.folding_control_obj, not w.visible)
 
+            self.Log_manager.log_info(
+                f"{w.control_name}启用状态{obs.obs_property_enabled(w.obj)}⏩{w.enabled}"
+            )
             # 更新启用状态
             if obs.obs_property_enabled(w.obj) != w.enabled:
                 obs.obs_property_set_enabled(w.obj, w.enabled)
+            if w.widget_variant is GroupVariant.CHECKABLE:
+                self.Log_manager.log_info(
+                    f"{w.control_name}折叠判断{obs.obs_property_enabled(w.obj)}⏩{w.enabled}"
+                )
+                obs.obs_property_set_enabled(w.folding_control_obj, not w.enabled)
 
             # 根据控件分类进行数据同步
             category = w.widget_category
@@ -112,6 +130,21 @@ class UIUpdater:
             elif category is WidgetCategory.GROUP:
                 if isinstance(w, GroupData):
                     self._update_group(w)
+
+            # 颜色框
+            elif category is WidgetCategory.COLORBOX:
+                if isinstance(w, FontBoxData):
+                    self._update_colorbox(w)
+
+            # 字体框
+            elif category is WidgetCategory.FONTBOX:
+                if isinstance(w, GroupData):
+                    self._update_fontbox(w)
+
+            # 列表框
+            elif category is WidgetCategory.LISTBOX:
+                if isinstance(w, ListBoxData):
+                    self._update_listbox(w)
 
             # 其他控件类型（颜色框、字体框、列表框）暂不处理，可后续扩展
             else:
@@ -202,6 +235,21 @@ class UIUpdater:
     def _update_group(self, w: GroupData) -> None:
         """同步分组框控件的勾选状态（如果可勾选）。"""
         if w.widget_variant is GroupVariant.CHECKABLE:
+            self.Log_manager.log_info(
+                f"{w.control_name}的勾选状态{obs.obs_data_get_bool(self.script_settings, w.control_name)}⏩{w.checked}"
+            )
             if obs.obs_data_get_bool(self.script_settings, w.control_name) != w.checked:
+                self.Log_manager.log_info("✔")
                 obs.obs_data_set_bool(self.script_settings, w.control_name, w.checked)
-                obs.obs_data_set_bool(self.script_settings, w.control_name.encode().hex(), not w.checked)
+                obs.obs_data_set_bool(self.script_settings, w.control_name.encode().hex(), w.checked)
+            else:
+                self.Log_manager.log_info("⭕")
+
+    def _update_colorbox(self, w):
+        pass
+
+    def _update_fontbox(self, w):
+        pass
+
+    def _update_listbox(self, w):
+        pass

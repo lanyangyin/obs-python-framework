@@ -1,4 +1,6 @@
 # obsScriptFramework_/src/framework/obsScriptControlFreePropertyBuildFramework.py
+from src.data.obsScriptControlData import WidgetCategory, GroupVariant, TextBoxVariant
+
 
 # 保留原有的 build_controls 函数，并在其下方添加新函数
 
@@ -48,10 +50,27 @@ def apply_user_properties(
 
                 # 遍历所有自由属性，调用对应的回调函数获取值并设置
                 for control_properties_name in control_properties:
+                    if getattr(control_manager_category_object, "widget_category") == WidgetCategory.GROUP:
+                        if getattr(control_manager_category_object, "widget_variant") == GroupVariant.NORMAL:
+                            if control_properties_name == "checked":
+                                log_manager.log_info(
+                                    f"⭕拉取[{control_name}]自由属性：{control_properties_name}|该控件无此属性值"
+                                )
+                                continue
+                    elif getattr(control_manager_category_object, "widget_category") == WidgetCategory.TEXTBOX:
+                        if getattr(control_manager_category_object, "widget_variant") != TextBoxVariant.INFO:
+                            if control_properties_name == "info_type":
+                                log_manager.log_info(
+                                    f"⭕拉取[{control_name}]自由属性：{control_properties_name}|该控件无此属性值"
+                                )
+                                continue
                     control_property_function_name = control_properties[control_properties_name]
+                    """控件自由属性值的获取函数的名称"""
                     if hasattr(ControlDataSetFunctions, str(control_property_function_name)):
                         get_property_function = getattr(ControlDataSetFunctions, control_property_function_name)
+                        """控件自由属性值的获取函数，类型是函数"""
                         control_property_value = get_property_function(control_name=control_name)
+                        """控件自由属性值的获取的值"""
                         setattr(control_manager_category_object, control_properties_name, control_property_value)
                         log_manager.log_info(
                             f"拉取[{control_name}]自由属性：{control_properties_name}|属性值获取回调函数名：{control_property_function_name}"

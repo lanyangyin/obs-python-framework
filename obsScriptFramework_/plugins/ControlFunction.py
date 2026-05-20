@@ -1,6 +1,8 @@
 """控件数据get函数"""
 import json
 from functools import lru_cache
+
+from src.data.obsScriptControlData import TextBoxInfoVariant
 from .tool.addClearCache import add_clear_cache, ClearableCache
 from .tool.addAliases import add_aliases, AliasMeta
 
@@ -11,116 +13,123 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         self.control_manager = control_manager
 
     @staticmethod
-    def test_url_value():
+    def url_reference_data(*args, **kwargs):
         v = "https://www.tcptest.cn/http"
         return v
 
     @staticmethod
-    def test_checked_value():
+    def checked_reference_data(*args, **kwargs):
         v = True
         return v
 
     @staticmethod
-    def test_min_val_value():
+    def min_val_reference_data(*args, **kwargs):
         v = 0
         return v
 
     @staticmethod
-    def test_max_val_value():
+    def max_val_reference_data(*args, **kwargs):
         v = 100
         return v
 
     @staticmethod
-    def test_step_value():
+    def step_reference_data(*args, **kwargs):
         v = 1
         return v
 
     @staticmethod
-    def test_info_type_value():
-        v = "NORMAL"
+    def digital_reference_data(*args, **kwargs):
+        v = 50
         return v
 
     @staticmethod
-    def test_text_value():
+    def info_type_reference_data(*args, **kwargs):
+        v = TextBoxInfoVariant.NORMAL
+        return v
+
+    @staticmethod
+    def text_reference_data(*args, **kwargs):
         v = "这是一段文本测试"
         return v
 
     @staticmethod
-    def test_path_text_value():
-        v = "C:\\"
-        return v
-
-    @staticmethod
-    def test_label_value():
+    def label_reference_data(*args, **kwargs):
         v = "这是组合框标签测试"
         return v
 
     @staticmethod
-    def test_value_value():
+    def value_reference_data(*args, **kwargs):
         v = "这是组合框值测试"
         return v
 
     @staticmethod
-    def test_items_value():
-        v = {
-            "label":"这是组合框/列表框元素标签测试",
-            "value":"这是组合框/列表框元素值测试"
-        }
+    def items_reference_data(*args, **kwargs):
+        v = [{
+            "label": "这是组合框/列表框元素标签测试",
+            "value": "这是组合框/列表框元素值测试",
+            "selected": False,
+            "hidden": False
+        }]
         return v
 
     @staticmethod
-    def test_color_alpha_value():
+    def color_alpha_reference_data(*args, **kwargs):
         v = 0xFF
         return v
 
     @staticmethod
-    def test_color_red_value():
+    def color_red_reference_data(*args, **kwargs):
         v = 0xFF
         return v
 
     @staticmethod
-    def test_color_green_value():
+    def color_green_reference_data(*args, **kwargs):
         v = 0xFF
         return v
 
     @staticmethod
-    def test_color_blue_value():
+    def color_blue_reference_data(*args, **kwargs):
         v = 0xFF
         return v
 
     @staticmethod
-    def test_font_face_value():
+    def font_face_reference_data(*args, **kwargs):
         v = "Kai"
         return v
 
     @staticmethod
-    def test_font_size_value():
+    def font_size_reference_data(*args, **kwargs):
         v = 36
         return v
 
     @staticmethod
-    def test_font_style_value():
+    def font_style_reference_data(*args, **kwargs):
         v = "Regular"
         return v
 
     @staticmethod
-    def test_font_bold_value():
+    def font_bold_reference_data(*args, **kwargs):
         v = False
         return v
 
     @staticmethod
-    def test_font_italic_value():
+    def font_italic_reference_data(*args, **kwargs):
         v = False
         return v
 
     @staticmethod
-    def test_font_underline_value():
+    def font_underline_reference_data(*args, **kwargs):
         v = False
         return v
 
     @staticmethod
-    def test_font_strikeout_value():
+    def font_strikeout_reference_data(*args, **kwargs):
         v = False
+        return v
+
+    @staticmethod
+    def path_text_reference_data(*args, **kwargs):
+        v = "C:\\"
         return v
 
     @lru_cache(maxsize=None)
@@ -130,7 +139,7 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         获取已折叠分组框所对应属性集名称的集合
         :return: 属性集名称集合
         """
-        widget_visibility_less_list = self.sys_c_d_m.get_data("system", "group_not_checked")
+        widget_visibility_less_list = self.sys_c_d_m.get_data("system", "group_folded_props_names")
         widget_visibility_less_set = set(widget_visibility_less_list)
         return widget_visibility_less_set
 
@@ -148,7 +157,7 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         control_name = kwargs["control_name"]
         widget = self.control_manager.get_widget_by_control_name(control_name)
         group_props_name = widget.group_props_name
-        widget_visibility_less_set = self.get_common_group_fold(control_name)
+        widget_visibility_less_set = self.get_common_group_fold()
         return group_props_name not in widget_visibility_less_set
 
     @staticmethod
@@ -161,12 +170,6 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
     @lru_cache(maxsize=None)
     @add_clear_cache
     def default_false(*args, **kwargs):
-        return False
-
-    @staticmethod
-    @lru_cache(maxsize=None)
-    @add_clear_cache
-    def test_checkBox_checked(*args, **kwargs):
         return False
 
     @staticmethod
