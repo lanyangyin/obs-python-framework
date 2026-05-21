@@ -12,126 +12,6 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         self.sys_c_d_m = sys_c_d_m
         self.control_manager = control_manager
 
-    @staticmethod
-    def url_reference_data(*args, **kwargs):
-        v = "https://www.tcptest.cn/http"
-        return v
-
-    @staticmethod
-    def checked_reference_data(*args, **kwargs):
-        v = True
-        return v
-
-    @staticmethod
-    def min_val_reference_data(*args, **kwargs):
-        v = 0
-        return v
-
-    @staticmethod
-    def max_val_reference_data(*args, **kwargs):
-        v = 100
-        return v
-
-    @staticmethod
-    def step_reference_data(*args, **kwargs):
-        v = 1
-        return v
-
-    @staticmethod
-    def digital_reference_data(*args, **kwargs):
-        v = 50
-        return v
-
-    @staticmethod
-    def info_type_reference_data(*args, **kwargs):
-        v = TextBoxInfoVariant.NORMAL
-        return v
-
-    @staticmethod
-    def text_reference_data(*args, **kwargs):
-        v = "这是一段文本测试"
-        return v
-
-    @staticmethod
-    def label_reference_data(*args, **kwargs):
-        v = "这是组合框标签测试"
-        return v
-
-    @staticmethod
-    def value_reference_data(*args, **kwargs):
-        v = "这是组合框值测试"
-        return v
-
-    @staticmethod
-    def items_reference_data(*args, **kwargs):
-        v = [{
-            "label": "这是组合框/列表框元素标签测试",
-            "value": "这是组合框/列表框元素值测试",
-            "selected": False,
-            "hidden": False
-        }]
-        return v
-
-    @staticmethod
-    def color_alpha_reference_data(*args, **kwargs):
-        v = 0xFF
-        return v
-
-    @staticmethod
-    def color_red_reference_data(*args, **kwargs):
-        v = 0xFF
-        return v
-
-    @staticmethod
-    def color_green_reference_data(*args, **kwargs):
-        v = 0xFF
-        return v
-
-    @staticmethod
-    def color_blue_reference_data(*args, **kwargs):
-        v = 0xFF
-        return v
-
-    @staticmethod
-    def font_face_reference_data(*args, **kwargs):
-        v = "Kai"
-        return v
-
-    @staticmethod
-    def font_size_reference_data(*args, **kwargs):
-        v = 36
-        return v
-
-    @staticmethod
-    def font_style_reference_data(*args, **kwargs):
-        v = "Regular"
-        return v
-
-    @staticmethod
-    def font_bold_reference_data(*args, **kwargs):
-        v = False
-        return v
-
-    @staticmethod
-    def font_italic_reference_data(*args, **kwargs):
-        v = False
-        return v
-
-    @staticmethod
-    def font_underline_reference_data(*args, **kwargs):
-        v = False
-        return v
-
-    @staticmethod
-    def font_strikeout_reference_data(*args, **kwargs):
-        v = False
-        return v
-
-    @staticmethod
-    def path_text_reference_data(*args, **kwargs):
-        v = "C:\\"
-        return v
-
     @lru_cache(maxsize=None)
     @add_clear_cache
     def get_common_group_fold(self, *args, **kwargs) -> set[str]:
@@ -183,5 +63,141 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
     @add_clear_cache
     def test1(*args, **kwargs):
         return True
+
+    #  ==============================================参考数据============================================================
+    ## 按钮网址
+    @staticmethod
+    def url_reference_data(*args, **kwargs):
+        v = "https://www.tcptest.cn/http"
+        return v
+
+    ## 单选框选择状态
+    @staticmethod
+    def checked_reference_data(*args, **kwargs):
+        v = True
+        return v
+
+    @staticmethod
+    def checked_reference_data0(*args, **kwargs):
+        v = False
+        return v
+
+    @staticmethod
+    def min_val_reference_data(*args, **kwargs):
+        v = 0
+        return v
+
+    @staticmethod
+    def max_val_reference_data(*args, **kwargs):
+        v = 100
+        return v
+
+    @staticmethod
+    def step_reference_data(*args, **kwargs):
+        v = 1
+        return v
+
+    @staticmethod
+    def digital_reference_data(*args, **kwargs):
+        v = 50
+        return v
+
+    @staticmethod
+    def info_type_reference_data(*args, **kwargs):
+        v = TextBoxInfoVariant.NORMAL
+        return v
+
+    @staticmethod
+    def text_reference_data(*args, **kwargs):
+        v = "这是一段文本测试"
+        return v
+
+    @staticmethod
+    def label_reference_data(*args, **kwargs):
+        v = "这是组合框标签测试"
+        return v
+
+    @staticmethod
+    def value_reference_data(*args, **kwargs):
+        v = "这是组合框值测试"
+        return v
+
+    @staticmethod
+    def items_reference_data(*args, **kwargs):
+        v = [
+            {
+                "label": "这是组合框/列表框元素标签测试",
+                "value": "这是组合框/列表框元素值测试",
+                "selected": False,
+                "hidden": False
+            },
+            {
+                "label": "这是组合框/列表框元素标签测试0",
+                "value": "这是组合框/列表框元素值测试0",
+                "selected": False,
+                "hidden": False
+            }
+        ]
+        return v
+
+    @staticmethod
+    def color_alpha_reference_data(*args, **kwargs):
+        v = 200
+        return v
+
+    @staticmethod
+    def color_red_reference_data(*args, **kwargs):
+        v = 255
+        return v
+
+    @staticmethod
+    def color_green_reference_data(*args, **kwargs):
+        v = 128
+        return v
+
+    @staticmethod
+    def color_blue_reference_data(*args, **kwargs):
+        v = 234
+        return v
+
+    @staticmethod
+    def font_face_reference_data(*args, **kwargs):
+        v = "Kai"
+        return v
+
+    @staticmethod
+    def font_size_reference_data(*args, **kwargs):
+        v = 36
+        return v
+
+    @staticmethod
+    def font_style_reference_data(*args, **kwargs):
+        v = "Regular"
+        return v
+
+    @staticmethod
+    def font_bold_reference_data(*args, **kwargs):
+        v = False
+        return v
+
+    @staticmethod
+    def font_italic_reference_data(*args, **kwargs):
+        v = False
+        return v
+
+    @staticmethod
+    def font_underline_reference_data(*args, **kwargs):
+        v = False
+        return v
+
+    @staticmethod
+    def font_strikeout_reference_data(*args, **kwargs):
+        v = False
+        return v
+
+    @staticmethod
+    def path_text_reference_data(*args, **kwargs):
+        v = "C:\\"
+        return v
 
 

@@ -351,6 +351,16 @@ class ColorBoxData(ControlBaseData):
         else:
             return bgr
 
+    def set_from_color_value(self, color_value: int):
+        """根据 color_value 整数设置本控件的各颜色分量。"""
+        self.color_blue = (color_value >> 16) & 0xFF
+        self.color_green = (color_value >> 8) & 0xFF
+        self.color_red = color_value & 0xFF
+        if self.widget_variant == ColorBoxVariant.ALPHA:
+            self.color_alpha = (color_value >> 24) & 0xFF
+        else:
+            self.color_alpha = 0xFF  # 无 Alpha 控件时默认不透明
+
 
 @dataclass
 class FontBoxData(ControlBaseData):

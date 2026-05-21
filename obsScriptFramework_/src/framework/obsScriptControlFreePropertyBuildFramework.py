@@ -35,7 +35,7 @@ def apply_user_properties(
         props_name = controls_data["props_name"]
         if props_name in fold_props_name:
             log_manager.log_info(f'被折叠的控件：{controls_data["group_properties"]["group_1"]["control_name"]}')
-            continue
+            # continue
         if props_name in all_props_mapping:
             control_name = controls_data["group_properties"]["group_1"]["control_name"]
             if control_name in all_props_mapping[props_name]:

@@ -105,7 +105,13 @@ def build_controls(
                     widget.checked = widget.group_props_name not in widget_visibility_less_list
                     if not widget.checked:
                         log_manager.log_info(f"折叠分组框{control_name}")
-                    update_widget_for_props_dict = {widget.props_name:[_control_name]}
+                        update_widget_for_props_dict = {widget.props_name:[_control_name]}
+                    else:
+                        log_manager.log_info(f"展开分组框{control_name}")
+                        update_widget_for_props_dict = {
+                            widget.props_name: [_control_name],
+                            widget.group_props_name: control_manager.get_props_mapping()[widget.group_props_name]
+                        }
                     """props_name到控件control_name列表的映射字典"""
                     control_ui_updater_manager.update(
                         update_widget_for_props_dict=update_widget_for_props_dict

@@ -1,6 +1,7 @@
 import obspython as obs
 from typing import Any, Dict, List, Optional
 
+from plugins.tool.parseColor import int_to_color_str
 # 根据您的实际文件路径调整导入
 from ..data.obsScriptControlData import (
     WidgetCategory,
@@ -15,7 +16,7 @@ from ..data.obsScriptControlData import (
     TextBoxVariant,
     ComboBoxVariant,
     GroupVariant,
-    TextBoxInfoVariant, ListBoxData, ColorBoxData, FontBoxData,
+    TextBoxInfoVariant, ListBoxData, ColorBoxData, FontBoxData, ColorBoxVariant,
 )
 
 
@@ -71,15 +72,12 @@ class UIUpdater:
                 continue
 
             self.Log_manager.log_info(
-                f"{w.control_name}可见性{obs.obs_property_visible(w.obj)}⏩{w.visible}"
+                f"{w.control_name}可见状态{obs.obs_property_visible(w.obj)}⏩{w.visible}"
             )
             # 更新可见性
             if obs.obs_property_visible(w.obj) != w.visible:
                 obs.obs_property_set_visible(w.obj, w.visible)
             if w.widget_variant == GroupVariant.CHECKABLE:
-                self.Log_manager.log_info(
-                    f"{w.control_name}折叠判断{obs.obs_property_visible(w.obj)}⏩{w.visible}"
-                )
                 obs.obs_property_set_visible(w.folding_control_obj, not w.visible)
 
             self.Log_manager.log_info(
@@ -89,9 +87,6 @@ class UIUpdater:
             if obs.obs_property_enabled(w.obj) != w.enabled:
                 obs.obs_property_set_enabled(w.obj, w.enabled)
             if w.widget_variant is GroupVariant.CHECKABLE:
-                self.Log_manager.log_info(
-                    f"{w.control_name}折叠判断{obs.obs_property_enabled(w.obj)}⏩{w.enabled}"
-                )
                 obs.obs_property_set_enabled(w.folding_control_obj, not w.enabled)
 
             # 根据控件分类进行数据同步
@@ -133,12 +128,12 @@ class UIUpdater:
 
             # 颜色框
             elif category is WidgetCategory.COLORBOX:
-                if isinstance(w, FontBoxData):
+                if isinstance(w, ColorBoxData):
                     self._update_colorbox(w)
 
             # 字体框
             elif category is WidgetCategory.FONTBOX:
-                if isinstance(w, GroupData):
+                if isinstance(w, FontBoxData):
                     self._update_fontbox(w)
 
             # 列表框
@@ -159,6 +154,9 @@ class UIUpdater:
 
     def _update_checkbox(self, w: CheckBoxData) -> None:
         """同步复选框控件的值。"""
+        self.Log_manager.log_info(
+            f"{w.control_name}的勾选状态{obs.obs_data_get_bool(self.script_settings, w.control_name)}⏩{w.checked}"
+        )
         if obs.obs_data_get_bool(self.script_settings, w.control_name) != w.checked:
             obs.obs_data_set_bool(self.script_settings, w.control_name, w.checked)
 
@@ -166,6 +164,12 @@ class UIUpdater:
         """同步数字框控件的范围与值。"""
         variant = w.widget_variant
         if variant in (DigitalBoxVariant.INT, DigitalBoxVariant.INT_SLIDER):
+            self.Log_manager.log_info(f"{w.control_name}最小值{obs.obs_property_int_min(w.obj)}⏩{w.min_val}")
+            self.Log_manager.log_info(f"{w.control_name}最大值{obs.obs_property_int_max(w.obj)}⏩{w.max_val}")
+            self.Log_manager.log_info(f"{w.control_name}步数{obs.obs_property_int_step(w.obj)}⏩{w.step}")
+            self.Log_manager.log_info(
+                f"{w.control_name}数值{obs.obs_data_get_int(self.script_settings, w.control_name)}⏩{w.value}"
+            )
             # 整数范围
             if (w.min_val != obs.obs_property_int_min(w.obj) or
                     w.max_val != obs.obs_property_int_max(w.obj) or
@@ -175,6 +179,12 @@ class UIUpdater:
             if obs.obs_data_get_int(self.script_settings, w.control_name) != w.value:
                 obs.obs_data_set_int(self.script_settings, w.control_name, w.value)
         elif variant in (DigitalBoxVariant.FLOAT, DigitalBoxVariant.FLOAT_SLIDER):
+            self.Log_manager.log_info(f"{w.control_name}最小值{obs.obs_property_float_min(w.obj)}⏩{w.min_val}")
+            self.Log_manager.log_info(f"{w.control_name}最大值{obs.obs_property_float_max(w.obj)}⏩{w.max_val}")
+            self.Log_manager.log_info(f"{w.control_name}步数{obs.obs_property_float_step(w.obj)}⏩{w.step}")
+            self.Log_manager.log_info(
+                f"{w.control_name}数值{obs.obs_data_get_double(self.script_settings, w.control_name)}⏩{w.value}"
+            )
             # 浮点数范围
             if (w.min_val != obs.obs_property_float_min(w.obj) or
                     w.max_val != obs.obs_property_float_max(w.obj) or
@@ -239,17 +249,18 @@ class UIUpdater:
                 f"{w.control_name}的勾选状态{obs.obs_data_get_bool(self.script_settings, w.control_name)}⏩{w.checked}"
             )
             if obs.obs_data_get_bool(self.script_settings, w.control_name) != w.checked:
-                self.Log_manager.log_info("✔")
                 obs.obs_data_set_bool(self.script_settings, w.control_name, w.checked)
-                obs.obs_data_set_bool(self.script_settings, w.control_name.encode().hex(), w.checked)
-            else:
-                self.Log_manager.log_info("⭕")
+            obs.obs_data_set_bool(self.script_settings, w.control_name.encode().hex(), w.checked)
 
-    def _update_colorbox(self, w):
+    def _update_colorbox(self, w: ColorBoxData):
+        self.Log_manager.log_info(
+            f"{w.control_name}的颜色{int_to_color_str(obs.obs_data_get_int(self.script_settings, w.control_name))}⏩{int_to_color_str(w.color_value)}"
+        )
+        if obs.obs_data_get_int(self.script_settings, w.control_name) != w.color_value:
+            obs.obs_data_set_int(self.script_settings, w.control_name, w.color_value)
+
+    def _update_fontbox(self, w: FontBoxData):
         pass
 
-    def _update_fontbox(self, w):
-        pass
-
-    def _update_listbox(self, w):
+    def _update_listbox(self, w: ListBoxData):
         pass
