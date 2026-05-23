@@ -241,7 +241,7 @@ class DigitalBoxData(ControlBaseData):
     """📵🥚数字框的变体类型。"""
     suffix: str = ""
     """📵🥚显示在数值后的单位后缀 (如 '%', 'px')。"""
-    value: Union[int, float] = 0
+    digital: Union[int, float] = 0
     """当前显示的数值。"""
     min_val: Union[int, float] = 0  # 避免与内置函数 `min` 冲突
     """允许的最小值。"""
@@ -303,7 +303,7 @@ class ListBoxData(ControlBaseData):
     """📵🥚文件类型过滤器（如 '*.png;*.jpg'）。"""
     default_path: str = ""
     """📵🥚对话框的默认起始路径。"""
-    items: List[Dict[Literal["value", "label", "selected", "hidden"], Any]] = field(default_factory=list)
+    items: List[Dict[Literal["value", "selected", "hidden"], Any]] = field(default_factory=list)
     """表框中的项目列表，每个项目是字典格式。"""
 
 
@@ -394,6 +394,13 @@ class FontBoxData(ControlBaseData):
         font_underline = 1 if self.font_underline else 0
         font_strikeout = 1 if self.font_strikeout else 0
         return int(f"0b{font_bold}{font_italic}{font_underline}{font_strikeout}", 2)
+
+    def set_from_font_flags(self, font_flags: int):
+        """根据 font_flags 整数设置本控件的各字体标志位。"""
+        self.font_bold = bool(font_flags & 1)
+        self.font_italic = bool(font_flags & 2)
+        self.font_underline = bool(font_flags & 4)
+        self.font_strikeout = bool(font_flags & 8)
 
 
 @dataclass

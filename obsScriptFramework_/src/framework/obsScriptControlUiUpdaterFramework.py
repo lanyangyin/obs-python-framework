@@ -1,5 +1,5 @@
 import obspython as obs
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 from plugins.tool.parseColor import int_to_color_str
 # 根据您的实际文件路径调整导入
@@ -168,7 +168,7 @@ class UIUpdater:
             self.Log_manager.log_info(f"{w.control_name}最大值{obs.obs_property_int_max(w.obj)}⏩{w.max_val}")
             self.Log_manager.log_info(f"{w.control_name}步数{obs.obs_property_int_step(w.obj)}⏩{w.step}")
             self.Log_manager.log_info(
-                f"{w.control_name}数值{obs.obs_data_get_int(self.script_settings, w.control_name)}⏩{w.value}"
+                f"{w.control_name}数值{obs.obs_data_get_int(self.script_settings, w.control_name)}⏩{w.digital}"
             )
             # 整数范围
             if (w.min_val != obs.obs_property_int_min(w.obj) or
@@ -176,14 +176,14 @@ class UIUpdater:
                     w.step != obs.obs_property_int_step(w.obj)):
                 obs.obs_property_int_set_limits(w.obj, int(w.min_val), int(w.max_val), int(w.step))
             # 同步值
-            if obs.obs_data_get_int(self.script_settings, w.control_name) != w.value:
-                obs.obs_data_set_int(self.script_settings, w.control_name, w.value)
+            if obs.obs_data_get_int(self.script_settings, w.control_name) != w.digital:
+                obs.obs_data_set_int(self.script_settings, w.control_name, w.digital)
         elif variant in (DigitalBoxVariant.FLOAT, DigitalBoxVariant.FLOAT_SLIDER):
             self.Log_manager.log_info(f"{w.control_name}最小值{obs.obs_property_float_min(w.obj)}⏩{w.min_val}")
             self.Log_manager.log_info(f"{w.control_name}最大值{obs.obs_property_float_max(w.obj)}⏩{w.max_val}")
             self.Log_manager.log_info(f"{w.control_name}步数{obs.obs_property_float_step(w.obj)}⏩{w.step}")
             self.Log_manager.log_info(
-                f"{w.control_name}数值{obs.obs_data_get_double(self.script_settings, w.control_name)}⏩{w.value}"
+                f"{w.control_name}数值{obs.obs_data_get_double(self.script_settings, w.control_name)}⏩{w.digital}"
             )
             # 浮点数范围
             if (w.min_val != obs.obs_property_float_min(w.obj) or
@@ -191,8 +191,8 @@ class UIUpdater:
                     w.step != obs.obs_property_float_step(w.obj)):
                 obs.obs_property_float_set_limits(w.obj, w.min_val, w.max_val, w.step)
             # 同步值
-            if obs.obs_data_get_double(self.script_settings, w.control_name) != w.value:
-                obs.obs_data_set_double(self.script_settings, w.control_name, w.value)
+            if obs.obs_data_get_double(self.script_settings, w.control_name) != w.digital:
+                obs.obs_data_set_double(self.script_settings, w.control_name, w.digital)
 
     def _update_textbox(self, w: TextBoxData) -> None:
         """同步文本框控件的类型与内容。"""
@@ -252,15 +252,109 @@ class UIUpdater:
                 obs.obs_data_set_bool(self.script_settings, w.control_name, w.checked)
             obs.obs_data_set_bool(self.script_settings, w.control_name.encode().hex(), w.checked)
 
-    def _update_colorbox(self, w: ColorBoxData):
-        self.Log_manager.log_info(
-            f"{w.control_name}的颜色{int_to_color_str(obs.obs_data_get_int(self.script_settings, w.control_name))}⏩{int_to_color_str(w.color_value)}"
-        )
-        if obs.obs_data_get_int(self.script_settings, w.control_name) != w.color_value:
+    def _update_colorbox(self, w: ColorBoxData) -> None:
+        """
+        从 settings 读取颜色值并更新模型。
+
+        OBS 颜色存储格式：0xAARRGGBB
+        示例：0x80FF0000 = 50% 透明度的红色
+        """
+        current = obs.obs_data_get_int(self.script_settings, w.control_name)
+        self.Log_manager.log_info(f"{w.control_name}的颜色{int_to_color_str(current)}⏩{int_to_color_str(w.color_value)}")
+        if current != w.color_value:
             obs.obs_data_set_int(self.script_settings, w.control_name, w.color_value)
 
-    def _update_fontbox(self, w: FontBoxData):
-        pass
+    def _update_fontbox(self, w: FontBoxData) -> None:
+        """
+        从 settings 读取字体数据（obs_data_t）并更新 FontBoxData 模型。
 
-    def _update_listbox(self, w: ListBoxData):
-        pass
+        字体数据格式：
+        - "current_face"    ：字体名称，如 "Microsoft YaHei"、"Arial"
+        - "current_size"    ：字体大小，整数
+        - "current_style"   ：样式字符串，如 "Regular"、"Bold"
+        - "current_flags"   ：标志位，按位组合控制粗体、斜体等
+        """
+        current_font_data = obs.obs_data_get_obj(self.script_settings, w.control_name)
+        try:
+            if current_font_data is None:
+                self.Log_manager.log_warning(f"[字体框] {w.control_name}: 无字体数据")
+            else:
+                # 读取字段
+                current_face = obs.obs_data_get_string(current_font_data, "current_face")
+                current_size = obs.obs_data_get_int(current_font_data, "current_size")
+                current_style = obs.obs_data_get_string(current_font_data, "current_style")
+                current_flags = obs.obs_data_get_int(current_font_data, "current_flags")
+
+                # 更新模型
+                if current_face != w.font_face or current_size != w.font_size or current_style != w.font_style or current_flags != w.font_flags:
+                    pass
+                if current_face != w.font_face:
+                    w.font_face = current_face
+                if current_size != w.font_size:
+                    w.font_size = current_size
+                if current_style != w.font_style:
+                    w.font_style = current_style
+
+                # 从 current_flags 解析独立标志位（font_flags 是属性方法，由标志位组合而成）
+                # 通常 current_flags 按位定义：bit0=粗体，bit1=斜体，bit2=下划线，bit3=删除线
+                w.font_bold = bool(current_flags & 1)
+                w.font_italic = bool(current_flags & 2)
+                w.font_underline = bool(current_flags & 4)
+                w.font_strikeout = bool(current_flags & 8)
+
+                self.Log_manager.log_info(
+                    f"[字体框] {w.control_name}: 模型已更新为 {current_face}, {current_size}px, current_style={current_style}, current_flags={current_flags}"
+                )
+                font_data = obs.obs_data_create()
+                obs.obs_data_set_string(font_data, "face", w.font_face)
+                obs.obs_data_set_int(font_data, "size", w.font_size)
+                obs.obs_data_set_string(font_data, "style", w.font_style)
+
+                # 注意: 你的模型用font_flags属性组合标志位，可以直接传入
+                obs.obs_data_set_int(font_data, "flags", w.font_flags)
+
+                # 2. 将字体数据对象设置为默认值
+                obs.obs_data_set_obj(self.script_settings, w.control_name, font_data)
+                obs.obs_data_release(font_data)
+        finally:
+            # 务必释放字体数据对象，避免内存泄漏
+            obs.obs_data_release(current_font_data)
+
+    def _update_listbox(self, w: ListBoxData) -> None:
+        """
+        从 settings 读取列表框数据（obs_data_array_t）并更新 ListBoxData 模型。
+
+        列表框数据格式：
+        - 存储在 settings 中的是一个 obs_data_array_t（数组对象）
+        - 数组每个元素是一个 obs_data_t 对象，格式为 {"value": str, "selected": bool, "hidden": bool}
+        - 主要读取 "value" 字段获取列表项内容
+        """
+        array_t = obs.obs_data_get_array(self.script_settings, w.control_name)
+        if array_t is None:
+            return
+
+        try:
+            count = obs.obs_data_array_count(array_t)
+            current_items = []
+
+            for i in range(count):
+                item_obj = obs.obs_data_array_item(array_t, i)
+                if item_obj:
+                    value = obs.obs_data_get_string(item_obj, "value")
+                    # 可选：读取 selected 和 hidden 标志
+                    selected = obs.obs_data_get_bool(item_obj, "selected")
+                    hidden = obs.obs_data_get_bool(item_obj, "hidden")
+                    current_items.append({"value":value,"selected":selected,"hidden":hidden})
+                    obs.obs_data_release(item_obj)
+
+            # 将读取到的数据转换为模型支持的格式
+            model_items: list[dict[Literal["value", "selected", "hidden"], Any]] = [{
+                "value": item["value"]
+            } for item in current_items]
+
+            if w.items != model_items:
+                w.items = model_items
+                self.Log_manager.log_info(f"[列表框] {w.control_name}: 模型已更新，共 {len(model_items)} 项")
+
+        finally:
+            obs.obs_data_array_release(array_t)

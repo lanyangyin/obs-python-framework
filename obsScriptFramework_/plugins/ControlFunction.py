@@ -82,9 +82,15 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         v = False
         return v
 
+    ## 数字框数值
     @staticmethod
     def min_val_reference_data(*args, **kwargs):
         v = 0
+        return v
+
+    @staticmethod
+    def min_val_reference_data0(*args, **kwargs):
+        v = 1
         return v
 
     @staticmethod
@@ -93,8 +99,18 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         return v
 
     @staticmethod
+    def max_val_reference_data0(*args, **kwargs):
+        v = 1000
+        return v
+
+    @staticmethod
     def step_reference_data(*args, **kwargs):
         v = 1
+        return v
+
+    @staticmethod
+    def step_reference_data0(*args, **kwargs):
+        v = 9
         return v
 
     @staticmethod
@@ -103,22 +119,70 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         return v
 
     @staticmethod
+    def digital_reference_data0(*args, **kwargs):
+        v = 2
+        return v
+
+    @staticmethod
+    def digital_reference_data1(*args, **kwargs):
+        v = 2000
+        return v
+
+    ## 通知框类型
+    @staticmethod
     def info_type_reference_data(*args, **kwargs):
         v = TextBoxInfoVariant.NORMAL
         return v
 
+    @staticmethod
+    def info_type_reference_data0(*args, **kwargs):
+        v = TextBoxInfoVariant.ERROR
+        return v
+
+    @staticmethod
+    def info_type_reference_data1(*args, **kwargs):
+        v = TextBoxInfoVariant.WARNING
+        return v
+
+    ## 文本框内容
     @staticmethod
     def text_reference_data(*args, **kwargs):
         v = "这是一段文本测试"
         return v
 
     @staticmethod
+    def text_reference_data0(*args, **kwargs):
+        v = "这是一段文本测试0"
+        return v
+
+    ## 组合框
+    @staticmethod
     def label_reference_data(*args, **kwargs):
         v = "这是组合框标签测试"
         return v
 
     @staticmethod
+    def label_reference_data0(*args, **kwargs):
+        v = "这是组合框标签测试"
+        return v
+
+    @staticmethod
+    def label_reference_data1(*args, **kwargs):
+        v = "这是组合框标签测试"
+        return v
+
+    @staticmethod
     def value_reference_data(*args, **kwargs):
+        v = "这是组合框值测试"
+        return v
+
+    @staticmethod
+    def value_reference_data0(*args, **kwargs):
+        v = "这是组合框值测试"
+        return v
+
+    @staticmethod
+    def value_reference_data1(*args, **kwargs):
         v = "这是组合框值测试"
         return v
 
@@ -141,6 +205,25 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         return v
 
     @staticmethod
+    def items_reference_data0(*args, **kwargs):
+        v = [
+            {
+                "label": "这是组合框/列表框元素标签测试",
+                "value": "这是组合框/列表框元素值测试",
+                "selected": False,
+                "hidden": False
+            },
+            {
+                "label": "这是组合框/列表框元素标签测试0",
+                "value": "这是组合框/列表框元素值测试0",
+                "selected": False,
+                "hidden": False
+            }
+        ]
+        return v
+
+    ## 颜色框
+    @staticmethod
     def color_alpha_reference_data(*args, **kwargs):
         v = 200
         return v
@@ -160,6 +243,7 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         v = 234
         return v
 
+    ##  字体框
     @staticmethod
     def font_face_reference_data(*args, **kwargs):
         v = "Kai"
