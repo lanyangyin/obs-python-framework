@@ -1,3 +1,5 @@
+import os
+
 import obspython as obs
 from typing import Any, Dict, List, Optional, Literal
 
@@ -154,103 +156,168 @@ class UIUpdater:
 
     def _update_checkbox(self, w: CheckBoxData) -> None:
         """同步复选框控件的值。"""
-        self.Log_manager.log_info(
-            f"{w.control_name}的勾选状态{obs.obs_data_get_bool(self.script_settings, w.control_name)}⏩{w.checked}"
-        )
-        if obs.obs_data_get_bool(self.script_settings, w.control_name) != w.checked:
+        #  获取当前数据
+        current_bool = obs.obs_data_get_bool(self.script_settings, w.control_name)
+        #  数据审查
+        if type(w.checked) is not bool:
+            self.Log_manager.log_warning(f"复选框 {w.control_name} 期望 bool，实际为 {type(w.checked)}")
+        #  记录更新
+        self.Log_manager.log_info(f"{w.control_name}的勾选状态{current_bool}⏩{w.checked}")
+        #  执行更新
+        if current_bool != w.checked:
             obs.obs_data_set_bool(self.script_settings, w.control_name, w.checked)
 
     def _update_digitalbox(self, w: DigitalBoxData) -> None:
         """同步数字框控件的范围与值。"""
+        #  获取当前数据
         variant = w.widget_variant
         if variant in (DigitalBoxVariant.INT, DigitalBoxVariant.INT_SLIDER):
-            self.Log_manager.log_info(f"{w.control_name}最小值{obs.obs_property_int_min(w.obj)}⏩{w.min_val}")
-            self.Log_manager.log_info(f"{w.control_name}最大值{obs.obs_property_int_max(w.obj)}⏩{w.max_val}")
-            self.Log_manager.log_info(f"{w.control_name}步数{obs.obs_property_int_step(w.obj)}⏩{w.step}")
-            self.Log_manager.log_info(
-                f"{w.control_name}数值{obs.obs_data_get_int(self.script_settings, w.control_name)}⏩{w.digital}"
-            )
-            # 整数范围
-            if (w.min_val != obs.obs_property_int_min(w.obj) or
-                    w.max_val != obs.obs_property_int_max(w.obj) or
-                    w.step != obs.obs_property_int_step(w.obj)):
+            current_min = obs.obs_property_int_min(w.obj)
+            current_max = obs.obs_property_int_max(w.obj)
+            current_step = obs.obs_property_int_step(w.obj)
+            current_value = obs.obs_data_get_int(self.script_settings, w.control_name)
+        elif variant in (DigitalBoxVariant.FLOAT, DigitalBoxVariant.FLOAT_SLIDER):
+            current_min = obs.obs_property_float_min(w.obj)
+            current_max = obs.obs_property_float_max(w.obj)
+            current_step = obs.obs_property_float_step(w.obj)
+            current_value = obs.obs_data_get_double(self.script_settings, w.control_name)
+        #  数据审查
+        if variant in (DigitalBoxVariant.INT, DigitalBoxVariant.INT_SLIDER):
+            if type(w.digital) is not int:
+                self.Log_manager.log_warning(f"数字框 {w.control_name} 期望 int，实际为 {type(w.digital)}")
+        elif variant in (DigitalBoxVariant.FLOAT, DigitalBoxVariant.FLOAT_SLIDER):
+            if type(w.digital) is not float:
+                self.Log_manager.log_warning(f"数字框 {w.control_name} 期望 float，实际为 {type(w.digital)}")
+        #  记录更新
+        self.Log_manager.log_info(f"{w.control_name}最小值{current_min}⏩{w.min_val}")
+        self.Log_manager.log_info(f"{w.control_name}最大值{current_max}⏩{w.max_val}")
+        self.Log_manager.log_info(f"{w.control_name}步数{current_step}⏩{w.step}")
+        self.Log_manager.log_info(f"{w.control_name}数值{current_value}⏩{w.digital}")
+        #  执行更新
+        if variant in (DigitalBoxVariant.INT, DigitalBoxVariant.INT_SLIDER):
+            if w.min_val != current_min or w.max_val != current_max or w.step != current_step:  # 整数范围更新
                 obs.obs_property_int_set_limits(w.obj, int(w.min_val), int(w.max_val), int(w.step))
-            # 同步值
-            if obs.obs_data_get_int(self.script_settings, w.control_name) != w.digital:
+            if current_value != w.digital:  # 值更新
                 obs.obs_data_set_int(self.script_settings, w.control_name, w.digital)
         elif variant in (DigitalBoxVariant.FLOAT, DigitalBoxVariant.FLOAT_SLIDER):
-            self.Log_manager.log_info(f"{w.control_name}最小值{obs.obs_property_float_min(w.obj)}⏩{w.min_val}")
-            self.Log_manager.log_info(f"{w.control_name}最大值{obs.obs_property_float_max(w.obj)}⏩{w.max_val}")
-            self.Log_manager.log_info(f"{w.control_name}步数{obs.obs_property_float_step(w.obj)}⏩{w.step}")
-            self.Log_manager.log_info(
-                f"{w.control_name}数值{obs.obs_data_get_double(self.script_settings, w.control_name)}⏩{w.digital}"
-            )
-            # 浮点数范围
-            if (w.min_val != obs.obs_property_float_min(w.obj) or
-                    w.max_val != obs.obs_property_float_max(w.obj) or
-                    w.step != obs.obs_property_float_step(w.obj)):
-                obs.obs_property_float_set_limits(w.obj, w.min_val, w.max_val, w.step)
-            # 同步值
-            if obs.obs_data_get_double(self.script_settings, w.control_name) != w.digital:
+            if w.min_val != current_min or w.max_val != current_max or w.step != current_step:  # 浮点数范围更新
+                obs.obs_property_float_set_limits(w.obj, float(w.min_val), float(w.max_val), float(w.step))
+            if current_value != w.digital:  # 值更新
                 obs.obs_data_set_double(self.script_settings, w.control_name, w.digital)
 
     def _update_textbox(self, w: TextBoxData) -> None:
         """同步文本框控件的类型与内容。"""
-        if w.widget_variant is TextBoxVariant.INFO:
-            # 更新信息类型
-            if obs.obs_property_text_info_type(w.obj) != w.info_type.value:
+        #  获取当前数据
+        variant = w.widget_variant
+        if variant is TextBoxVariant.INFO:
+            current_info_type = obs.obs_property_text_info_type(w.obj)
+        current_string = obs.obs_data_get_string(self.script_settings, w.control_name)
+        #  数据审查
+        if variant is TextBoxVariant.INFO:
+            if type(w.info_type) is not TextBoxInfoVariant:
+                self.Log_manager.log_warning(f"文本框 {w.control_name} 期望 TextBoxInfoVariant，实际为 {type(w.info_type)}")
+        if type(w.text) is not str:
+            self.Log_manager.log_warning(f"文本框 {w.control_name} 期望 str，实际为 {type(w.text)}")
+        #  记录更新
+        if variant is TextBoxVariant.INFO:
+            self.Log_manager.log_info(f"{w.control_name}文本提示类型{current_info_type}⏩{w.info_type}")
+        self.Log_manager.log_info(f"{w.control_name}文本{current_string}⏩{w.text}")
+        #  执行更新
+        if variant is TextBoxVariant.INFO:
+            if current_info_type != w.info_type.value:  # 更新信息类型
                 obs.obs_property_text_set_info_type(w.obj, w.info_type.value)
-        # 同步文本内容
-        if obs.obs_data_get_string(self.script_settings, w.control_name) != w.text:
+        if current_string != w.text:  # 文本内容更新
             obs.obs_data_set_string(self.script_settings, w.control_name, w.text)
 
     def _update_combobox(self, w: ComboBoxData) -> None:
         """同步组合框控件的选项与当前值。"""
-        # 构建当前选项列表以比较
+        #  获取当前数据
         current_options = []
+        """当前选项列表数据"""
         item_count = obs.obs_property_list_item_count(w.obj)
         for idx in range(item_count):
             label = obs.obs_property_list_item_name(w.obj, idx)
             value = obs.obs_property_list_item_string(w.obj, idx)
             current_options.append({"label": label, "value": value})
-
-        # 如果选项列表发生变化，则重建
+        current_string = obs.obs_data_get_string(self.script_settings, w.control_name)
+        #  数据审查
+        if not isinstance(w.items, list):
+            self.Log_manager.log_warning(f"组合框 {w.control_name} 期望 list，实际为 {type(w.items)}")
+            label_exists = False
+            value_exists = False
+        else:
+            label_exists = any(item.get("label") == w.label for item in w.items)
+            value_exists = any(item.get("value") == w.value for item in w.items)
+        if type(w.label) is not str:
+            self.Log_manager.log_warning(f"组合框 {w.control_name} 期望 str，实际为 {type(w.label)}")
+        if type(w.value) is not str:
+            self.Log_manager.log_warning(f"组合框 {w.control_name} 期望 str，实际为 {type(w.value)}")
+        if not label_exists:
+            self.Log_manager.log_warning(f"组合框 {w.control_name} 期望 in {w.items}，实际为 {w.label}")
+        if not value_exists:
+            self.Log_manager.log_warning(f"组合框 {w.control_name} 期望 in {w.items}，实际为 {w.value}")
+        #  记录更新
         if w.items != current_options:
-            obs.obs_property_list_clear(w.obj)
-            # 先将当前显示文本对应的项插入到索引 0
-            found = False
-            for item in w.items:
+            self.Log_manager.log_info(f"{w.control_name}组合框列表{current_options}⏩{w.items}")
+        self.Log_manager.log_info(f"{w.control_name}组合框显示文本{current_string}⏩{w.label}")
+        #  执行更新
+        if w.items != current_options:  # 设定组合框列表
+            obs.obs_property_list_clear(w.obj)  # 清除列表
+            for item in w.items:  # 先将当前显示文本对应的项插入到索引 0
                 if item["label"] == w.label:
                     obs.obs_property_list_insert_string(w.obj, 0, item["label"], item["value"])
-                    found = True
-                else:
+                    break
+            for item in w.items:
+                if item["label"] != w.label:
                     obs.obs_property_list_add_string(w.obj, item["label"], item["value"])
-            # 如果当前显示文本不在选项中，则所有项按顺序添加（无需额外操作）
-
-        # 根据组合框类型设置当前选中值
-        if w.widget_variant is ComboBoxVariant.EDITABLE:
-            first_item_name = obs.obs_property_list_item_name(w.obj, 0)
-            if obs.obs_data_get_string(self.script_settings, w.control_name) != first_item_name:
-                obs.obs_data_set_string(self.script_settings, w.control_name, first_item_name)
-        elif w.widget_variant is ComboBoxVariant.LIST:
-            first_item_value = obs.obs_property_list_item_string(w.obj, 0)
-            if obs.obs_data_get_string(self.script_settings, w.control_name) != first_item_value:
-                obs.obs_data_set_string(self.script_settings, w.control_name, first_item_value)
+        if w.widget_variant is ComboBoxVariant.EDITABLE:  # 可编辑列表显示文本更新
+            if current_string != w.label:
+                if label_exists:
+                    obs.obs_data_set_string(self.script_settings, w.control_name, w.label)
+                else:
+                    first_item_name = obs.obs_property_list_item_name(w.obj, 0)
+                    obs.obs_data_set_string(self.script_settings, w.control_name, first_item_name)
+        elif w.widget_variant is ComboBoxVariant.LIST:  # 不可编辑列表显示文本更新
+            if current_string != w.value:
+                if value_exists:
+                    obs.obs_data_set_string(self.script_settings, w.control_name, w.value)
+                else:
+                    first_item_value = obs.obs_property_list_item_string(w.obj, 0)
+                    obs.obs_data_set_string(self.script_settings, w.control_name, first_item_value)
 
     def _update_pathbox(self, w: PathBoxData) -> None:
         """同步路径框控件的路径文本。"""
-        if obs.obs_data_get_string(self.script_settings, w.control_name) != w.path_text:
+        #  获取当前数据
+        current_path = obs.obs_data_get_string(self.script_settings, w.control_name)
+        #  数据审查
+        if type(w.path_text) is not str:
+            self.Log_manager.log_warning(f"路径框 {w.control_name} 期望 str，实际为 {type(w.path_text)}")
+        if not os.path.exists(w.path_text):
+            self.Log_manager.log_warning(f"路径框 {w.control_name} 路径不存在: {w.path_text}")
+        #  记录更新
+        self.Log_manager.log_info(f"{w.control_name}路径框{current_path}⏩{w.path_text}")
+        #  执行更新
+        if current_path != w.path_text:
             obs.obs_data_set_string(self.script_settings, w.control_name, w.path_text)
 
     def _update_group(self, w: GroupData) -> None:
         """同步分组框控件的勾选状态（如果可勾选）。"""
-        if w.widget_variant is GroupVariant.CHECKABLE:
-            self.Log_manager.log_info(
-                f"{w.control_name}的勾选状态{obs.obs_data_get_bool(self.script_settings, w.control_name)}⏩{w.checked}"
-            )
-            if obs.obs_data_get_bool(self.script_settings, w.control_name) != w.checked:
+        #  获取当前数据
+        variant = w.widget_variant
+        if variant is GroupVariant.CHECKABLE:
+            current_bool = obs.obs_data_get_bool(self.script_settings, w.control_name)
+        #  数据审查
+        if variant is GroupVariant.CHECKABLE:
+            if type(w.checked) is not bool:
+                self.Log_manager.log_warning(f"分组框 {w.control_name} 期望 bool，实际为 {type(w.checked)}")
+        #  记录更新
+        if variant is GroupVariant.CHECKABLE:
+            self.Log_manager.log_info(f"{w.control_name}分组框{current_bool}⏩{w.checked}")
+        #  执行更新
+        if variant is GroupVariant.CHECKABLE:
+            if current_bool != w.checked:
                 obs.obs_data_set_bool(self.script_settings, w.control_name, w.checked)
-            obs.obs_data_set_bool(self.script_settings, w.control_name.encode().hex(), w.checked)
+            obs.obs_data_set_bool(self.script_settings, w.control_name.encode().hex(), w.checked)  # 同步折叠控件选项状态
 
     def _update_colorbox(self, w: ColorBoxData) -> None:
         """
@@ -259,8 +326,16 @@ class UIUpdater:
         OBS 颜色存储格式：0xAARRGGBB
         示例：0x80FF0000 = 50% 透明度的红色
         """
+        #  获取当前数据
         current = obs.obs_data_get_int(self.script_settings, w.control_name)
-        self.Log_manager.log_info(f"{w.control_name}的颜色{int_to_color_str(current)}⏩{int_to_color_str(w.color_value)}")
+        #  数据审查
+        if type(w.color_value) is not int:
+            self.Log_manager.log_warning(f"颜色框 {w.control_name} 期望 int，实际为 {type(w.color_value)}")
+        #  记录更新
+        self.Log_manager.log_info(
+            f"{w.control_name}的颜色{int_to_color_str(current)}⏩{int_to_color_str(w.color_value)}"
+        )
+        #  执行更新
         if current != w.color_value:
             obs.obs_data_set_int(self.script_settings, w.control_name, w.color_value)
 
@@ -274,51 +349,51 @@ class UIUpdater:
         - "current_style"   ：样式字符串，如 "Regular"、"Bold"
         - "current_flags"   ：标志位，按位组合控制粗体、斜体等
         """
+        #  获取当前数据
         current_font_data = obs.obs_data_get_obj(self.script_settings, w.control_name)
-        try:
-            if current_font_data is None:
-                self.Log_manager.log_warning(f"[字体框] {w.control_name}: 无字体数据")
-            else:
-                # 读取字段
-                current_face = obs.obs_data_get_string(current_font_data, "current_face")
-                current_size = obs.obs_data_get_int(current_font_data, "current_size")
-                current_style = obs.obs_data_get_string(current_font_data, "current_style")
-                current_flags = obs.obs_data_get_int(current_font_data, "current_flags")
+        if current_font_data:
+            current_face = obs.obs_data_get_string(current_font_data, "face")
+            current_size = obs.obs_data_get_int(current_font_data, "size")
+            current_style = obs.obs_data_get_string(current_font_data, "style")
+            current_flags = obs.obs_data_get_int(current_font_data, "flags")
+            obs.obs_data_release(current_font_data)  # 务必释放字体数据对象，避免内存泄漏
+        else:
+            current_face = current_size = current_style = current_flags = None
+        #  数据审查
+        if type(w.font_face) is not str:
+            self.Log_manager.log_warning(f"字体框 {w.control_name} 期望 str，实际为 {type(w.font_face)}")
+        if type(w.font_size) is not int:
+            self.Log_manager.log_warning(f"字体框 {w.control_name} 期望 int，实际为 {type(w.font_size)}")
+        if type(w.font_style) is not str:
+            self.Log_manager.log_warning(f"字体框 {w.control_name} 期望 str，实际为 {type(w.font_style)}")
+        if type(w.font_flags) is not int:
+            self.Log_manager.log_warning(f"字体框 {w.control_name} 期望 int，实际为 {type(w.font_flags)}")
+        #  记录更新
+        self.Log_manager.log_info(f"{w.control_name}的字体系列名称{current_face}⏩{w.font_face}")
+        self.Log_manager.log_info(f"{w.control_name}的字体大小{current_size}px⏩{w.font_size}px")
+        self.Log_manager.log_info(f"{w.control_name}的字体样式{current_style}⏩{w.font_style}")
+        self.Log_manager.log_info(f"{w.control_name}的字体标志位{current_flags}⏩{w.font_flags}")
+        if current_flags is not None:
+            self.Log_manager.log_info(f"{w.control_name}的标志粗体{bool(current_flags & 1)}⏩{w.font_bold}")
+            self.Log_manager.log_info(f"{w.control_name}的标志斜体{bool(current_flags & 2)}⏩{w.font_italic}")
+            self.Log_manager.log_info(f"{w.control_name}的标志下划线{bool(current_flags & 4)}⏩{w.font_underline}")
+            self.Log_manager.log_info(f"{w.control_name}的标志删除线{bool(current_flags & 8)}⏩{w.font_strikeout}")
+        else:
+            self.Log_manager.log_info(f"{w.control_name}的标志粗体(无数据)⏩{w.font_bold}")
+            self.Log_manager.log_info(f"{w.control_name}的标志斜体(无数据)⏩{w.font_italic}")
+            self.Log_manager.log_info(f"{w.control_name}的标志下划线(无数据)⏩{w.font_underline}")
+            self.Log_manager.log_info(f"{w.control_name}的标志删除线(无数据)⏩{w.font_strikeout}")
 
-                # 更新模型
-                if current_face != w.font_face or current_size != w.font_size or current_style != w.font_style or current_flags != w.font_flags:
-                    pass
-                if current_face != w.font_face:
-                    w.font_face = current_face
-                if current_size != w.font_size:
-                    w.font_size = current_size
-                if current_style != w.font_style:
-                    w.font_style = current_style
-
-                # 从 current_flags 解析独立标志位（font_flags 是属性方法，由标志位组合而成）
-                # 通常 current_flags 按位定义：bit0=粗体，bit1=斜体，bit2=下划线，bit3=删除线
-                w.font_bold = bool(current_flags & 1)
-                w.font_italic = bool(current_flags & 2)
-                w.font_underline = bool(current_flags & 4)
-                w.font_strikeout = bool(current_flags & 8)
-
-                self.Log_manager.log_info(
-                    f"[字体框] {w.control_name}: 模型已更新为 {current_face}, {current_size}px, current_style={current_style}, current_flags={current_flags}"
-                )
-                font_data = obs.obs_data_create()
-                obs.obs_data_set_string(font_data, "face", w.font_face)
-                obs.obs_data_set_int(font_data, "size", w.font_size)
-                obs.obs_data_set_string(font_data, "style", w.font_style)
-
-                # 注意: 你的模型用font_flags属性组合标志位，可以直接传入
-                obs.obs_data_set_int(font_data, "flags", w.font_flags)
-
-                # 2. 将字体数据对象设置为默认值
-                obs.obs_data_set_obj(self.script_settings, w.control_name, font_data)
-                obs.obs_data_release(font_data)
-        finally:
-            # 务必释放字体数据对象，避免内存泄漏
-            obs.obs_data_release(current_font_data)
+        #  执行更新
+        if (current_face != w.font_face or current_size != w.font_size or
+                current_style != w.font_style or current_flags != w.font_flags):
+            font_data = obs.obs_data_create()
+            obs.obs_data_set_string(font_data, "face", w.font_face)
+            obs.obs_data_set_int(font_data, "size", w.font_size)
+            obs.obs_data_set_string(font_data, "style", w.font_style)
+            obs.obs_data_set_int(font_data, "flags", w.font_flags)
+            obs.obs_data_set_obj(self.script_settings, w.control_name, font_data)
+            obs.obs_data_release(font_data)
 
     def _update_listbox(self, w: ListBoxData) -> None:
         """
@@ -329,32 +404,44 @@ class UIUpdater:
         - 数组每个元素是一个 obs_data_t 对象，格式为 {"value": str, "selected": bool, "hidden": bool}
         - 主要读取 "value" 字段获取列表项内容
         """
-        array_t = obs.obs_data_get_array(self.script_settings, w.control_name)
-        if array_t is None:
-            return
-
-        try:
-            count = obs.obs_data_array_count(array_t)
-            current_items = []
-
+        current_array = obs.obs_data_get_array(self.script_settings, w.control_name)
+        current_items = []
+        if current_array is not None:
+            count = obs.obs_data_array_count(current_array)
             for i in range(count):
-                item_obj = obs.obs_data_array_item(array_t, i)
-                if item_obj:
-                    value = obs.obs_data_get_string(item_obj, "value")
-                    # 可选：读取 selected 和 hidden 标志
-                    selected = obs.obs_data_get_bool(item_obj, "selected")
-                    hidden = obs.obs_data_get_bool(item_obj, "hidden")
-                    current_items.append({"value":value,"selected":selected,"hidden":hidden})
-                    obs.obs_data_release(item_obj)
+                item_obj = obs.obs_data_array_item(current_array, i)
+                # 从 obs_data_t 中提取字段
+                val = obs.obs_data_get_string(item_obj, "value")
+                sel = obs.obs_data_get_bool(item_obj, "selected")
+                hid = obs.obs_data_get_bool(item_obj, "hidden")
+                current_items.append({"value": val, "selected": sel, "hidden": hid})
+                obs.obs_data_release(item_obj)
+            obs.obs_data_array_release(current_array)
 
-            # 将读取到的数据转换为模型支持的格式
-            model_items: list[dict[Literal["value", "selected", "hidden"], Any]] = [{
-                "value": item["value"]
-            } for item in current_items]
+        # 数据审查
+        if not isinstance(w.items, list):
+            self.Log_manager.log_warning(
+                f'列表框 {w.control_name} 期望 list，实际为 {type(w.items)}'
+            )
 
-            if w.items != model_items:
-                w.items = model_items
-                self.Log_manager.log_info(f"[列表框] {w.control_name}: 模型已更新，共 {len(model_items)} 项")
+        # 记录更新
+        if current_items != w.items:
+            self.Log_manager.log_info(f"{w.control_name}列表框内容{current_items}⏩{w.items}")
 
-        finally:
-            obs.obs_data_array_release(array_t)
+        # 执行更新（从模型写回 settings）
+        # 注意：这里假定 w.items 已经是模型希望同步到的目标状态
+        # 如果需要将用户界面改动反向同步回模型，则相反方向。但 UIUpdater 通常负责模型 -> UI，此处我们做 UI -> 模型
+        # 然而本方法名 _update_listbox 调用时机是模型变化后刷新 UI，所以应该将 w.items 写入 settings
+        # 为了保持一致，我们实现写入逻辑（与其它 _update_xxx 方向一致）
+        if current_items != w.items:
+            # 构建新数组
+            new_array = obs.obs_data_array_create()
+            for item in w.items:
+                obj = obs.obs_data_create()
+                obs.obs_data_set_string(obj, "value", item.get("value", "?"))
+                obs.obs_data_set_bool(obj, "selected", item.get("selected", False))
+                obs.obs_data_set_bool(obj, "hidden", item.get("hidden", False))
+                obs.obs_data_array_push_back(new_array, obj)
+                obs.obs_data_release(obj)
+            obs.obs_data_set_array(self.script_settings, w.control_name, new_array)
+            obs.obs_data_array_release(new_array)

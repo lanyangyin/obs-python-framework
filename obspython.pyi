@@ -6,10 +6,154 @@
 
 from sys import version_info as _swig_python_version_info
 # Import the low-level C/C++ module
-if __package__ or "." in __name__:
-    from . import _obspython
-else:
-    import _obspython
+# if __package__ or "." in __name__:
+#     from . import _obspython
+# else:
+#     import _obspython
+
+class _obspython:
+    GS_TRIS = None
+    GS_LINESTRIP = None
+    GS_LINES = None
+    GS_POINTS = None
+    GS_MAX_TEXTURES = None
+
+    @classmethod
+    def blog(cls, log_level, message):
+        pass
+
+    @classmethod
+    def obs_frontend_remove_canvas(cls, canvas):
+        pass
+
+    @classmethod
+    def obs_frontend_add_canvas(cls, name, ovi, flags):
+        pass
+
+    @classmethod
+    def obs_frontend_get_canvases(cls, canvas_list):
+        pass
+
+    @classmethod
+    def obs_frontend_add_undo_redo_action(cls, name, undo, redo, undo_data, redo_data, repeatable):
+        pass
+
+    @classmethod
+    def obs_frontend_get_last_replay(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_get_last_screenshot(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_get_last_recording(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_is_theme_dark(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_get_locale_string(cls, string):
+        pass
+
+    @classmethod
+    def obs_frontend_get_current_record_output_path(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_open_sceneitem_edit_transform(cls, item):
+        pass
+
+    @classmethod
+    def obs_frontend_open_source_interaction(cls, source):
+        pass
+
+    @classmethod
+    def obs_frontend_open_source_filters(cls, source):
+        pass
+
+    @classmethod
+    def obs_frontend_open_source_properties(cls, source):
+        pass
+
+    @classmethod
+    def obs_frontend_reset_video(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_virtualcam_active(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_stop_virtualcam(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_start_virtualcam(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_get_virtualcam_output(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_take_source_screenshot(cls, source):
+        pass
+
+    @classmethod
+    def obs_frontend_take_screenshot(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_set_current_preview_scene(cls, scene):
+        pass
+
+    @classmethod
+    def obs_frontend_get_current_preview_scene(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_preview_enabled(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_set_preview_enabled(cls, enable):
+        pass
+
+    @classmethod
+    def obs_frontend_preview_program_trigger_transition(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_set_preview_program_mode(cls, enable):
+        pass
+
+    @classmethod
+    def obs_frontend_preview_program_mode_active(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_save_streaming_service(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_get_streaming_service(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_set_streaming_service(cls, service):
+        pass
+
+    @classmethod
+    def obs_frontend_get_user_config(cls):
+        pass
+
+    @classmethod
+    def obs_frontend_get_app_config(cls):
+        pass
+
 
 import builtins as __builtin__
 
