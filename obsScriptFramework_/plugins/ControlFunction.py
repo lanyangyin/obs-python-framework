@@ -2,6 +2,7 @@
 import json
 from functools import lru_cache
 
+from plugins.GlobalVariable import GlobalVariable
 from src.data.obsScriptControlData import TextBoxInfoVariant
 from .tool.addClearCache import add_clear_cache, ClearableCache
 from .tool.addAliases import add_aliases, AliasMeta
@@ -147,7 +148,7 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
     ## 文本框内容
     @staticmethod
     def text_reference_data(*args, **kwargs):
-        v = "这是一段文本测试"
+        v = GlobalVariable.text_test
         return v
 
     @staticmethod
