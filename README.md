@@ -1,351 +1,256 @@
-以下是针对您的 **OBS Python 脚本快速开发框架** 的开发者文档。该文档面向希望使用此框架创建 OBS 脚本的开发者，涵盖了框架设计、核心组件、使用方法和扩展指南。
+## 一、简单使用说明（给初上手者）
+
+### 1.1 环境准备
+- 安装 **OBS Studio**（版本 28.0 以上，支持 Python 脚本）。
+- 在 OBS 中设置 Python 环境：`工具 → 脚本 → Python 设置`，选择 Python 3.9/3.10 解释器路径。
+- 确保 OBS 能正常加载脚本。
+
+### 1.2 文件放置
+将整个 `obsScriptFramework_` 文件夹（包含 `plugins/`、`src/`、`widgetData.csv` 等）放置到 OBS 脚本目录中（通常为 `C:\Users\<用户名>\AppData\Roaming\obs-studio\scripts\` 或与 `obsScriptFramework.py` 同级）。  
+主入口脚本 `obsScriptFramework.py` 应放在上述目录下。
+
+### 1.3 快速上手步骤
+1. **定义控件**  
+   打开 `obsScriptFramework_/plugins/widgetData.csv`，按行添加或修改你的控件。每一行代表一个控件对象，列包括控件类型、名称、描述、回调函数等。  
+   *参考示例文件内的已有控件即可快速理解*。
+
+2. **实现回调函数**  
+   - **按钮点击回调**：在 `plugins/ButtonFunction.py` 的 `BtnFunction` 类中，添加方法，方法名与 CSV 中 `callback` 列的值一致。  
+   - **控件值变化回调**：在 `plugins/ControlFunction.py` 的 `ControlDataSetFunction` 类中，添加静态方法，方法名与 CSV 中 `modified_callback` 列的值一致。  
+   - **前端事件回调**：在 `BtnFunction` 中添加以 `OBS_FRONTEND_EVENT_xxx` 命名的静态方法（参考 `ExplanatoryDictionary.py` 中的枚举）。
+
+3. **修改描述信息（可选）**  
+   编辑 `plugins/obsScriptDescription.html`，可自定义脚本在 OBS 中显示的介绍文字。
+
+4. **加载脚本**  
+   在 OBS 中：`工具 → 脚本 → 添加脚本`，选择 `obsScriptFramework.py`。  
+   若一切正常，脚本属性页会显示 CSV 中定义的所有控件。
+
+### 1.4 注意事项
+- **控件名称唯一性**：同一脚本内 `control_name` 必须全局唯一（包括分组框的 `group_props_name`）。不要使用保留名称 `"group"`。  
+- **分组框的 group_props_name**：所有分组框的 `group_props_name` 不能重名，且不能等于所在父容器的 `props_name`。  
+- **动态控制可见/可用**：若需要在控件值变化时改变其他控件的可见性、可用性，请在 `ControlDataSetFunction` 的自由属性方法中返回 `True/False`，并在 CSV 中将目标控件的 `visible` / `enabled` 列设为对应的函数名。  
+- **日志查看**：框架会自动在脚本所在目录生成 `LOG/` 文件夹，按日期存储日志。在 OBS 脚本日志窗口也可看到简要信息。  
+- **修改 CSV 后需重载脚本**：每次编辑 `widgetData.csv` 后，需在 OBS 中重新加载脚本（右键脚本 → 重新加载）。
 
 ---
 
-# OBS Python 脚本快速开发框架 —— 开发者文档
+## 二、开发者文档（一）：框架架构与核心设计
 
-## 1. 框架概述
+### 2.1 设计目标
+- **声明式 UI 开发**：通过 CSV 文件描述控件树及属性，无需手写 `obs_properties_add_xxx` 代码。  
+- **动态属性绑定**：控件属性（如最小值、选项列表、可见性）可绑定到 Python 函数，支持运行时动态计算。  
+- **回调统一管理**：按钮点击、控件修改、前端事件均通过统一的函数映射管理器调用用户自定义逻辑。  
+- **状态持久化**：系统常用数据（如折叠分组状态）通过 `CommonDataManager` 自动保存到 JSON。  
 
-**obs-python-framework** 是一个用于快速开发 OBS Studio Python 脚本的声明式框架。  
-开发者只需编辑 CSV 文件定义控件（复选框、数字框、按钮、分组等），并实现少量业务回调函数，即可自动生成完整的脚本设置界面，并自动处理 UI 状态同步、回调注册、折叠分组等复杂逻辑。
+### 2.2 整体模块划分
+```
+obsScriptFramework.py            # 脚本入口，整合所有框架模块
+├── src/
+│   ├── data/                    # 数据定义与全局变量
+│   │   ├── obsScriptControlData.py       # 控件数据类（CheckBoxData等）
+│   │   ├── obsScriptGlobalVariable.py    # 全局共享数据（路径、管理器实例）
+│   │   └── ExplanatoryDictionary.py      # 事件/日志类型映射
+│   ├── tool/                    # 工具类
+│   │   ├── LogManager.py                 # 日志管理
+│   │   ├── CommonDataManager.py          # 用户/系统通用数据管理（JSON）
+│   │   └── scriptCsv2Json.py             # CSV → 控件树解析器
+│   └── framework/               # 核心框架
+│       ├── obsScriptControlDataFramework.py          # 控件管理器（ControlManager）
+│       ├── obsScriptControlInnatePropertyBuildFramework.py   # 天赋属性构建（从CSV生成控件）
+│       ├── obsScriptControlFreePropertyBuildFramework.py     # 自由属性构建（动态计算属性）
+│       ├── obsSciptButtonFunctionFramework.py         # 按钮回调分发器
+│       ├── obsScriptModifiedFunctionFramework.py      # 修改回调分发器
+│       ├── obsTriggerFrontendEventFramework.py        # OBS 前端事件监听
+│       └── obsScriptControlUiUpdaterFramework.py      # UI 状态同步（可见/可用/值）
+├── plugins/                     # 用户扩展目录
+│   ├── widgetData.csv           # 控件定义文件
+│   ├── ButtonFunction.py        # 按钮回调实现
+│   ├── ControlFunction.py       # 控件属性动态计算函数
+│   └── GlobalVariable.py        # 用户全局变量
+```
 
-### 1.1 核心特性
-- **声明式 UI**：通过 `widgetData.csv` 定义控件，无需手写 `obs.obs_properties_add_xxx`。
-- **分层属性管理**：支持 `props_name`（属性集）和 `group_props_name`（分组集），实现控件嵌套与折叠。
-- **两种属性填充方式**：
-  - **天赋属性**：直接从 CSV 静态列读取（如 `min_val`, `max_val`）。
-  - **自由属性**：通过回调函数动态计算（如从配置文件读取、依赖其他控件状态）。
-- **回调系统**：统一管理控件值修改回调、按钮点击回调和 OBS 前端事件回调。
-- **自动 UI 同步**：`UIUpdater` 自动将内存中控件的 `visible`、`enabled`、`value` 等状态同步到 OBS 界面。
-- **折叠分组框**：支持可勾选分组框，子控件自动跟随折叠/展开，状态持久化。
+### 2.3 工作流程
 
-### 1.2 适用场景
-- 需要为 OBS 脚本提供复杂设置面板的开发者。
-- 希望避免重复编写大量 OBS API 调用代码的开发者。
-- 需要动态 UI（如根据复选框显示/隐藏一组控件）且希望逻辑集中在配置中的项目。
+#### 脚本生命周期钩子
+| 钩子函数              | 作用                                                                 |
+|----------------------|----------------------------------------------------------------------|
+| `script_defaults`    | 初始化所有管理器、解析 CSV、构建控件树、绑定回调、应用自由属性        |
+| `script_properties`  | 根据控件管理器中的控件列表，创建 `obs_properties_t` 并返回根属性集    |
+| `script_load`        | 注册前端事件回调                                                    |
+| `script_update`      | (预留) 当用户修改设置时触发                                        |
+| `script_unload`      | 刷新日志缓存                                                         |
+
+#### 控件构建流程
+1. `ControlTemplateParser.parse_csv_files()` 读取 `widgetAttributeDefinitionData.csv`（模板）和 `widgetData.csv`（数据），生成包含层级关系的控件树字典。  
+2. `build_controls()` 遍历控件树，调用 `ControlManager` 的 `create_widget()` 创建控件数据对象，并绑定 `modified_callback` 和 `click_callback`。  
+3. `apply_user_properties()` 遍历所有控件，根据 CSV 中 `group_3`/`group_4` 列定义的“自由属性映射”，调用 `ControlDataSetFunction` 中对应方法计算实际属性值（如 `visible`、`items` 等），写入控件数据对象。  
+4. `UIUpdater.update()` 在属性页首次显示时将所有控件数据对象的当前状态同步到 OBS 界面（可见性、数值等）。
+
+#### 回调分发机制
+- **按钮点击**：`obs_properties_add_button` 时传入的 `click_callback` 是 `ObsScriptButtonFunction.select(button_name)` 返回的闭包，该闭包再调用 `BtnFunction.button_name()`。  
+- **控件值变化**：`obs_property_set_modified_callback` 传入的闭包由 `ModifiedFunction.property_modified(control_name, func_name)` 生成，内部检查 `allow_execution` 标志（由两个内置按钮控制），然后调用 `BtnFunction.func_name(control_name=...)`。  
+- **前端事件**：`obs_frontend_add_event_callback` 注册的闭包由 `TriggerFrontendEvent.event_callback()` 返回，内部根据事件类型调用 `BtnFunction.<FrontendEvent(event).name>()`。
+
+### 2.4 扩展点
+- **新增控件类型**：在 `WidgetCategory` 枚举中添加、在 `ControlBaseData` 子类中定义专用字段、在 `script_properties` 和 `UIUpdater` 中添加对应处理分支。  
+- **自定义属性计算**：在 `ControlDataSetFunction` 中添加带 `@add_clear_cache` 装饰器的静态方法，在 CSV 中将控件的 `visible`/`enabled`/`items` 等列设为该方法名。  
+- **自定义用户数据**：通过 `CommonDataManager` 的实例 `sys_common_data_manager` 存取任意 JSON 数据。
 
 ---
 
-## 2. 项目结构
+## 三、开发者文档（二）：API 参考手册
 
+### 3.1 控件数据类（`src.data.obsScriptControlData`）
+
+所有控件类均继承自 `ControlBaseData`，其公共属性：
+| 属性                         | 类型                  | 说明                               |
+|-----------------------------|-----------------------|------------------------------------|
+| `control_name`              | str                   | 全局唯一标识符                     |
+| `object_name`               | str                   | 同分类下唯一对象名                 |
+| `props_name`                | str                   | 所属属性集名称（必须为某个 group 的 `group_props_name`） |
+| `description`               | str                   | 用户可见标签                       |
+| `long_description`          | str                   | 帮助文本                           |
+| `widget_variant`            | Enum                  | 具体变体（如 INT_SLIDER）          |
+| `modified_callback_enabled` | bool                  | 是否启用修改回调                   |
+| `modified_callback`         | Callable              | 值变化时回调函数                   |
+| `visible`                   | bool                  | 可见性（可动态绑定）               |
+| `enabled`                   | bool                  | 是否灰显（可动态绑定）             |
+| `props` / `obj`             | Any (OBS 内部对象)    | 运行时由框架设置，用户不应修改     |
+
+**专用控件特有属性**（摘录）：
+- **DigitalBoxData**：`digital`（当前值）、`min_val`、`max_val`、`step`、`suffix`  
+- **ComboBoxData**：`items`（`[{"label":..., "value":...}]`）、`label`、`value`  
+- **GroupData**：`group_props_name`（子控件引用名）、`checked`（可勾选分组状态）、`folding_visible` 等折叠相关  
+- **ColorBoxData**：`color_alpha/red/green/blue` 分量，以及 `color_value` 属性  
+- **FontBoxData**：`font_face`、`font_size`、`font_style`、`font_bold` 等标志位
+
+### 3.2 控件管理器（`obsScriptControlDataFramework.ControlManager`）
+
+单例模式，通过 `get_control_manager()` 获取。
+
+#### 主要方法
+```python
+# 创建控件（通常由框架调用，用户一般不需要直接调用）
+cm.create_widget(category: WidgetCategory, control_name: str, object_name: str, **kwargs) -> ControlBaseData
+
+# 按分类管理器访问（推荐）
+cm.checkbox.add(control_name="my_check", object_name="my_check", description="Test", props_name="props")
+
+# 获取指定控件
+w = cm.get_widget_by_control_name("my_check")
+
+# 获取所有控件（按 load_order 排序）
+widgets = cm.get_widgets_by_load_order()
+
+# 获取 props_name 到 control_name 列表的映射
+mapping = cm.get_props_mapping()
+
+# 获取基础分组控件
+basic_group = cm.get_basic_group()   # 其 group_props_name 为 "props"
 ```
-obs-python-framework/
-├── obsScriptFramework_.py          # 框架主入口脚本（需放在 OBS 脚本目录）
-├── plugins/                         # 用户业务代码目录
-│   ├── ButtonFunction.py            # 按钮点击和控件变动回调实现
-│   ├── ControlFunction.py           # 自由属性值获取函数
-│   └── tool/                        # 辅助工具（如别名装饰器）
-├── src/                             # 框架核心代码
-│   ├── data/                        # 数据结构定义
-│   │   ├── obsScriptControlData.py  # 控件数据类（CheckBoxData 等）
-│   │   ├── obsScriptGlobalVariable.py # 全局变量（将被重构）
-│   │   └── ExplanatoryDictionary.py  # 枚举与说明字典
-│   ├── framework/                   # 核心功能模块
-│   │   ├── obsScriptControlDataFramework.py        # ControlManager 控件管理器
-│   │   ├── obsScriptControlInnatePropertyBuildFramework.py  # 天赋属性构建
-│   │   ├── obsScriptControlFreePropertyBuildFramework.py   # 自由属性拉取
-│   │   ├── obsScriptControlUiUpdaterFramework.py   # UIUpdater 界面同步
-│   │   ├── obsScriptModifiedFunctionFramework.py   # ModifiedFunction 回调管理
-│   │   ├── obsSciptButtonFunctionFramework.py      # 按钮回调包装
-│   │   └── obsTriggerFrontendEventFramework.py     # 前端事件触发
-│   └── tool/                        # 工具类
-│       ├── LogManager.py            # 日志管理器
-│       ├── CommonDataManager.py     # 常用数据持久化（用于折叠状态等）
-│       └── scriptCsv2Json.py        # CSV 解析器（将 CSV 转为内部数据结构）
-├── doc/                             # 文档（控件属性详细说明）
-├── LOG/                             # 运行时日志输出目录
-└── 配置文件（在脚本加载时自动生成）
-```
 
----
+#### 分类管理器（如 `cm.checkbox`）提供的方法
+- `add(control_name, object_name=None, **kwargs)`：添加控件，`kwargs` 对应数据类属性。  
+- `__getattr__(object_name)`：通过 `object_name` 获取控件对象。  
+- `__contains__`、`__iter__` 等。
 
-## 3. 快速开始
-
-### 3.1 安装与配置
-1. 将整个 `obsScriptFramework_.py` 及同目录文件放入 OBS 的脚本目录（通常为 `C:\ProgramData\obs-studio\basic\scripts\` 或通过 OBS 脚本对话框添加）。
-2. 修改 `plugins/ButtonFunction.py` 和 `plugins/ControlFunction.py` 实现自己的逻辑。
-3. 编辑 `widgetData.csv` 定义所需的控件。
-4. 在 OBS 中加载脚本，界面将自动生成。
-
-### 3.2 第一个脚本示例
-
-**步骤 1：定义控件（widgetData.csv）**
-
-```csv
-object_name,widget_category,|,control_name,description,long_description,widget_variant,modified_callback_enabled,modified_callback,||,suffix,callback,filter_str,default_path,group_props_name,|,visible,enabled,||,url,checked,min_val,max_val,step,digital,info_type,text,label,value,items,color_alpha,color_red,color_green,color_blue,font_face,font_size,font_style,font_bold,font_italic,font_underline,font_strikeout,path_text,|,load_order,props,obj,||,group_props,folding_control_obj,folding_visible,folding_enabled,color_value,font_data,font_flags
-my_checkbox,CHECKBOX,|,enable_feature,启用高级功能,,,true,on_checkbox_changed,,,,,,,,,,default_true,default_true,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-my_button,BUTTON,|,exec_action,执行动作,,DEFAULT,false,,,X,on_button_click,,,,,,default_true,default_true,,,,url_reference_data,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-```
-
-**步骤 2：实现回调函数（plugins/ButtonFunction.py）**
+### 3.3 UI 更新器（`obsScriptControlUiUpdaterFramework.UIUpdater`）
 
 ```python
-from .tool.addAliases import add_aliases
+updater = UIUpdater(script_settings, control_manager, log_manager)
+updater.update(update_widget_for_props_dict: Dict[str, List[str]]) -> bool
+```
+- `update_widget_for_props_dict`：指定需要更新的控件（如 `{"props": ["check1", "slider1"]}`）。  
+- 内部会根据控件的 `visible`、`enabled`、`digital`、`text` 等属性刷新 OBS 界面。
 
-class BtnFunction:
+### 3.4 日志管理器（`LogManager`）
+
+```python
+log = LogManager(log_dir="path/to/logs", log_num_max=100, word_max=100000)
+log.log_info(msg)
+log.log_warning(msg)
+log.log_error(msg)
+log.log_exception(e, context="...")
+log.flush()   # 强制保存缓存日志到文件
+```
+
+### 3.5 常用数据管理器（`CommonDataManager`）
+
+```python
+data_mgr = CommonDataManager(filepath="path/to/config.json")
+# 存储
+data_mgr.add_data(user_id="system", data_type="group_folded_props_names", item="audio_props", maximum=999)
+# 读取
+folded = data_mgr.get_data("system", "group_folded_props_names")
+# 删除
+data_mgr.remove_data("system", "group_folded_props_names", "audio_props")
+```
+
+### 3.6 用户回调编写规范
+
+#### 按钮回调（在 `plugins/ButtonFunction.py` 中）
+```python
+class BtnFunction(metaclass=AliasMeta):
     def __init__(self, Log_manager, sys_c_d_m, control_manager, control_ui_updater_manager):
         self.Log_manager = Log_manager
-        # 其他管理器可存储供后续使用
+        self.sys_c_d_m = sys_c_d_m
+        self.control_manager = control_manager
+        self.control_ui_updater_manager = control_ui_updater_manager
 
-    @add_aliases("on_checkbox_changed")
-    def checkbox_changed(self, control_name=None, **kwargs):
-        self.Log_manager.log_info(f"复选框 {control_name} 状态已改变")
-        # 可根据新值修改其他控件的可见性
-        return True
-
-    @add_aliases("on_button_click")
-    def button_clicked(self, *args, **kwargs):
-        self.Log_manager.log_info("按钮被点击")
-        # 执行实际动作，如启动推流
+    def my_button_clicked(self, control_name: str, *args, **kwargs):
+        self.Log_manager.log_info(f"Button {control_name} clicked")
+        # 可以修改其他控件的属性，然后强制刷新 UI
+        target = self.control_manager.get_widget_by_control_name("some_check")
+        target.checked = not target.checked
+        self.control_ui_updater_manager.update({"props": ["some_check"]})
         return True
 ```
 
-**步骤 3：运行脚本**  
-在 OBS 中加载脚本，即可看到复选框和按钮，点击按钮或修改复选框时会触发相应日志。
-
----
-
-## 4. 核心组件详解
-
-### 4.1 `ControlManager` —— 控件管理器
-
-负责控件的创建、存储、唯一性验证和分组管理。
-
-**主要方法：**
-- `create_widget(category, control_name, object_name, **kwargs)` – 创建控件并加入管理。
-- `get_widget_by_control_name(control_name)` – 通过唯一标识获取控件对象。
-- `get_widgets_by_load_order()` – 返回按 `load_order` 排序的控件列表（用于 UI 生成）。
-- `get_props_mapping()` – 返回 `{props_name: [control_name, ...]}` 字典，用于批量更新。
-- `get_basic_group()` – 获取根分组控件（`group_props_name="props"`）。
-
-**重要属性：**
-- `_basic_group`：基础分组框，所有顶层控件的 `props_name` 默认为 `"props"`。
-- `_group_props_names`：所有 `group_props_name` 的集合，用于验证 `props_name` 的合法性。
-
-**使用示例（在框架内部自动调用）：**
+#### 控件修改回调（在 `plugins/ControlFunction.py` 中）
 ```python
-# 添加一个复选框，它属于 "props" 属性集
-cm.checkbox.add(
-    control_name="enable_feature",
-    object_name="cb_enable",
-    description="启用功能",
-    checked=True,
-    props_name="props"
-)
+class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
+    @staticmethod
+    @lru_cache(maxsize=None)
+    @add_clear_cache
+    def my_modified_callback(control_name: str, *args, **kwargs):
+        # 可返回 True/False 表示允许修改；或直接执行逻辑
+        print(f"Control {control_name} changed")
+        return True
 ```
 
-### 4.2 `UIUpdater` —— 界面同步器
-
-将控件模型（`ControlBaseData` 及其子类）的状态同步到 OBS 原生控件。
-
-**核心方法：**
-- `update(update_widget_for_props_dict)` – 接收 `{props_name: [control_names]}` 字典，仅更新指定的控件。
-
-**工作原理：**
-- 遍历需要更新的控件，根据控件类型调用对应的 `_update_xxx` 方法（如 `_update_checkbox`）。
-- 这些方法会对比当前 OBS 中的值与模型中的值，如有变化则调用 `obs.obs_data_set_xxx` 写回设置。
-- 同时更新 `visible` 和 `enabled` 状态（调用 `obs.obs_property_set_visible/enabled`）。
-
-**开发者注意事项：**
-- 不要在 `script_update` 或 `script_tick` 中直接修改控件的 `visible`/`enabled`，应修改模型后调用 `UIUpdater.update`。
-- 折叠分组框的折叠状态通过 `CommonDataManager` 持久化，`UIUpdater` 会自动处理。
-
-### 4.3 CSV 解析器 —— `ControlTemplateParser`
-
-将两个 CSV 文件（属性定义 `widgetAttributeDefinitionData.csv` 和控件数据 `widgetData.csv`）转换为内部数据结构。
-
-**核心方法：**
-- `parse_csv_files(attribute_def_path, data_path, initial_props_name)`  
-  返回字典，包含：
-  - `all_controls`：所有控件的扁平列表。
-  - `tree`：按缩进（`→`）组织的树形结构。
-  - `templates`：每种控件类型支持的字段映射。
-
-**缩进规则：**
-- 使用 `→` 字符（U+2192）表示子控件，每多一个箭头表示深一级嵌套。
-- 子控件的 `props_name` 会自动继承最近上层分组框的 `group_props_name`（如果存在）。
-
-**字段分组：**
-- CSV 标题行中的 `|` 和 `||` 用于分隔属性组。
-  - 第一组（group_1）：基础属性（`control_name`、`description` 等）。
-  - 第二组（group_2）：可选属性（如 `suffix`、`url`）。
-  - 第三组（group_3）：动态自由属性（如 `checked` 列指向一个回调函数名）。
-  - 第四组（group_4）：扩展自由属性。
-
-### 4.4 回调系统
-
-#### 4.4.1 按钮回调
-- 在 CSV 中为按钮指定 `callback` 列（值为函数名）。
-- 框架在 `obsScriptButtonFunctionFramework.py` 中包装，调用 `BtnFunction` 中对应的方法。
-- 方法应接受 `(ps, p)` 参数，并返回 `True`。
-
-#### 4.4.2 控件变动回调
-- 在 CSV 中设置 `modified_callback_enabled` 为 `true`，`modified_callback` 列填写函数名。
-- 框架在 `obsScriptModifiedFunctionFramework.py` 中统一管理执行许可（`allow_execution` 标志）。
-- 回调函数定义在 `BtnFunction` 中，形式为：
-  ```python
-  def my_modified_callback(control_name=None, **kwargs):
-      # 根据新值调整其他控件
-      return True  # 或 False 阻止进一步传播
-  ```
-
-#### 4.4.3 自由属性获取函数
-- 定义在 `ControlFunction` 类中，使用 `@lru_cache` 和 `@add_clear_cache` 装饰器。
-- 函数名在 CSV 的 group_3/group_4 的列中指定，返回对应属性值。
-- 例如：`checked_reference_data` 返回 `True/False`，`min_val_reference_data` 返回数值。
-
-### 4.5 日志管理器 —— `LogManager`
-
-提供带文件持久化的日志记录，自动按日期分割、限制文件数量。
-
-**主要方法：**
-- `log_info`, `log_warning`, `log_error`, `log_debug` – 记录到 OBS 日志并缓存。
-- `flush()` – 强制将缓存写入文件。
-- `log_exception(exception, context)` – 记录异常堆栈。
-
-**配置：**  
-在 `script_defaults` 中创建实例时指定日志目录和最大文件数。
-
----
-
-## 5. 高级用法
-
-### 5.1 创建折叠分组框
-
-在 `widgetData.csv` 中定义 `widget_category=GROUP`，`widget_variant=CHECKABLE`，并指定唯一的 `group_props_name`。  
-其子控件（缩进多一级）的 `props_name` 会自动指向该 `group_props_name`。
-
-**示例：**
-```csv
-my_group,GROUP,|,audio_group,音频设置,,CHECKABLE,true,,,X,,,,,audio_props,|,default_true,default_true,|,X,checked_reference_data,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-→volume,DIGITALBOX,|,volume_level,音量,,INT_SLIDER,true,,,dB,,,,,,,|,default_true,default_true,|,X,,0,100,1,50,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-```
-
-### 5.2 动态更新控件属性（自由属性）
-
-在 CSV 的 group_3 或 group_4 列中填写函数名（如 `min_val: get_dynamic_min`），然后在 `ControlFunction` 中实现该函数：
-
+#### 自由属性计算（同样在 `ControlDataSetFunction` 中）
 ```python
+@staticmethod
 @lru_cache(maxsize=None)
 @add_clear_cache
-def get_dynamic_min(self, control_name=None, **kwargs):
-    # 可以从配置文件、其他控件值等计算
-    return 10
+def dynamic_visible(control_name: str):
+    # 根据其他控件状态返回 True/False
+    return obs.obs_data_get_bool(obs.obs_get_current_scene_as_source(), "some_flag")
 ```
+然后在 CSV 中将目标控件的 `visible` 列设为 `dynamic_visible`。
 
-当脚本加载时，`apply_user_properties` 会调用该函数并将返回值设置到控件的 `min_val` 属性上。
+### 3.7 CSV 文件格式要点
 
-**注意：** 自由属性只在脚本加载时拉取一次。如需运行时动态修改，应使用控件变动回调配合 `UIUpdater`。
+- `widgetAttributeDefinitionData.csv`：定义每个控件类型有哪些属性字段，以及哪些是必填（`O`）、可选（`X`）。  
+- `widgetData.csv`：具体控件实例。  
+  - 第一行必须与属性定义文件的列头一致。  
+  - 使用 `→` 前缀表示缩进层级，表示父子关系。  
+  - 分组框的 `group_props_name` 会创建新的属性集，其内部控件的 `props_name` 需指向该名称。  
+  - 自由属性列（通常位于第三、四组）中填入函数名，框架会在 `apply_user_properties` 时调用。
 
-### 5.3 监听 OBS 前端事件
+### 3.8 内置特殊控件
 
-在 `TriggerFrontendEvent` 中注册了回调，事件发生时会调用 `BtnFunction` 中与事件同名的方法。  
-例如，要监听推流开始事件，在 `BtnFunction` 中实现：
+- **允许执行控件修改回调**按钮（`control_name = "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"`）：开启回调执行。  
+- **禁止执行控件修改回调**按钮（`control_name = "e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"`）：临时禁止修改回调，用于调试。
 
-```python
-def STREAMING_STARTED(self, **kwargs):
-    self.Log_manager.log_info("推流已开始")
-    # 执行自定义动作
-```
+### 3.9 常见陷阱及解决
 
-### 5.4 跨脚本数据共享
-
-使用 `CommonDataManager` 存储用户常用数据（如历史标题、分类）。  
-在框架中已用于存储折叠分组的状态（`system` 用户的 `group_folded_props_names`）。  
-您可以扩展使用：
-
-```python
-# 保存用户最近输入
-self.common_data_manager.add_data(user_id, "recent_texts", text, maximum=10)
-# 读取
-recent_list = self.common_data_manager.get_data(user_id, "recent_texts")
-```
+- **修改回调不触发**：检查 CSV 中 `modified_callback_enabled` 是否为 `true`，且 `modified_callback` 列的函数名在 `BtnFunction` 中存在。同时确认“允许执行控件修改回调”按钮处于开启状态。  
+- **控件可见性未刷新**：调用 `UIUpdater.update()` 并传入包含该控件 `props_name` 的字典。  
+- **分组框折叠状态未保存**：框架自动将折叠状态存入 `sys_common_config.json`，无需手动处理。  
+- **导入错误**：若直接运行测试代码，需将 `obsScriptFramework_` 所在目录加入 `sys.path`，或使用相对导入。生产环境（OBS 内）已处理。
 
 ---
 
-## 6. 常见问题与最佳实践
-
-### Q1：控件没有显示出来？
-- 检查 CSV 中 `widget_category` 是否为枚举值（如 `CHECKBOX` 大写）。
-- 确认 `props_name` 有效（默认 `"props"` 存在，或已定义分组框）。
-- 查看 OBS 日志（帮助 → 日志文件）是否有 `ValueError`。
-
-### Q2：折叠分组框的子控件不隐藏？
-- 确保子控件的 `props_name` 等于父分组的 `group_props_name`。
-- 检查 `sys_common_config.json` 中 `system.group_folded_props_names` 列表是否正确更新。
-
-### Q3：修改控件值后回调未执行？
-- 确认 CSV 中 `modified_callback_enabled` 为 `true`，且 `modified_callback` 列填了正确的函数名。
-- 检查 `ModifiedFunction.allow_execution` 是否为 `True`（可通过专用按钮控制）。
-
-### Q4：如何调试？
-- 使用 `LogManager.log_debug` 记录详细信息。
-- 在 `ControlFunction` 中可临时关闭 `@lru_cache` 以便观察动态值变化。
-- OBS 的脚本日志窗口会显示 `INFO` 级别以上日志。
-
-### 最佳实践
-1. **控件命名**：使用有意义的英文名称，避免特殊字符或中文（防止 hex 编码）。
-2. **分组深度**：不超过 3 层，否则 UI 嵌套过深。
-3. **自由属性函数**：尽量保持幂等，避免副作用。如需全局状态，使用 `CommonDataManager`。
-4. **性能**：避免在 `property_modified` 回调中执行耗时操作（如网络请求），可启动后台线程但需注意 OBS API 只能在主线程调用。
-5. **版本管理**：在 `ObsScriptGlobalData.version` 中设置脚本版本，便于用户更新。
-
----
-
-## 7. 扩展指南
-
-### 7.1 添加新的控件类型（如日期选择器）
-
-1. 在 `obsScriptControlData.py` 中：
-   - 为 `WidgetCategory` 添加新枚举项（如 `DATEPICKER`）。
-   - 创建新的 `DatePickerData` 类，继承 `ControlBaseData`。
-2. 在 `ControlManager._get_widget_class` 中添加映射。
-3. 在 `UIUpdater` 中添加 `_update_datepicker` 方法，实现与 OBS 控件的同步。
-4. 在 `script_properties` 中添加创建该控件的分支（调用 `obs.obs_properties_add_...`）。
-5. 更新 `widgetAttributeDefinitionData.csv`，增加对应的列定义（`O`/`X`）。
-
-### 7.2 修改 CSV 格式
-
-- 属性定义文件决定了每列的含义。若需增加新的内置属性（如 `placeholder`），需：
-  - 在 `obsScriptControlData.py` 的对应数据类中添加属性。
-  - 在 `build_controls` 中将其从 CSV 传递到数据对象。
-  - 在 `UIUpdater` 中实现同步逻辑（如果需要从界面读取）。
-
-### 7.3 集成外部库
-
-由于 OBS Python 环境受限，建议将依赖库打包到脚本目录或使用 `sys.path.insert` 导入。注意不要与 OBS 内置 Python 库冲突。
-
----
-
-## 8. 附录
-
-### 8.1 控件属性 CSV 列参考
-
-| 列名 | 适用控件 | 说明 |
-|------|----------|------|
-| `control_name` | 所有 | 唯一标识（内部使用） |
-| `object_name` | 所有 | UI 对象名（同一分类下唯一） |
-| `description` | 所有 | 显示标签 |
-| `widget_variant` | 所有 | 具体变体（如 `INT_SLIDER`） |
-| `modified_callback_enabled` | 所有 | 是否启用变动回调 |
-| `modified_callback` | 所有 | 回调函数名（在 `BtnFunction` 中） |
-| `checked` | CHECKBOX, GROUP(CHECKABLE) | 是否勾选 |
-| `min_val`, `max_val`, `step`, `digital`, `suffix` | DIGITALBOX | 数值范围及步长 |
-| `text`, `info_type` | TEXTBOX(INFO) | 只读文本及类型 |
-| `url` | BUTTON(URL) | 跳转链接 |
-| `label`, `value`, `items` | COMBOBOX | 选项列表 |
-| `path_text`, `filter_str`, `default_path` | PATHBOX | 路径选择 |
-| `group_props_name` | GROUP | 子控件的 `props_name` 值 |
-
-### 8.2 依赖项
-- OBS Studio 28.0 或更高版本（Python 3.9+ 内嵌环境）。
-- Python 标准库（无外部依赖）。
-
-### 8.3 许可与贡献
-本框架为开放源代码，您可以在遵守 OBS 项目许可的前提下自由使用和修改。欢迎提交 issue 和 PR。
-
----
-
-**文档版本**: 1.0  
-**最后更新**: 2026-05-30  
-**维护者**: 框架作者
+> 以上文档基于 `obsScriptFramework.py` 及附属模块编写，版本对应为 `1.0.0`。如有框架更新，请以源码为准。
