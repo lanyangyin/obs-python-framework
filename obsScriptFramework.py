@@ -219,7 +219,10 @@ def script_properties():
                 w.obj = obs.obs_properties_add_float(
                     w.props, w.control_name, w.description, w.min_val, w.max_val, w.step
                 )
-            obs.obs_property_int_set_suffix(w.obj, w.suffix)
+            if w.widget_variant == DigitalBoxVariant.INT_SLIDER or w.widget_variant == DigitalBoxVariant.INT:
+                obs.obs_property_int_set_suffix(w.obj, w.suffix)
+            if w.widget_variant == DigitalBoxVariant.FLOAT_SLIDER or w.widget_variant == DigitalBoxVariant.FLOAT:
+                obs.obs_property_float_set_suffix(w.obj, w.suffix)
         elif w.widget_category == WidgetCategory.TEXTBOX:
             # 添加文本框控件
             ObsScriptGlobalManager.Log_manager.log_info(f"文本框控件: {w.control_name} 【{w.description}】")
@@ -272,6 +275,10 @@ def script_properties():
                 # 添加复选框控件作为折叠分组框
                 ObsScriptGlobalManager.Log_manager.log_info(f"折叠分组框[复选框控件]: {w.control_name} 【{w.description}】")
                 w.folding_control_obj = obs.obs_properties_add_bool(w.props, w.control_name.encode().hex(), w.description + "[⏫]")
+                widget_visibility_less_list = ObsScriptGlobalManager.sys_common_data_manager.get_data("system", "group_folded_props_names")
+                w.folding_visible = w.group_props_name not in widget_visibility_less_list
+                w.folding_enabled = w.group_props_name not in widget_visibility_less_list
+                w.checked = w.group_props_name not in widget_visibility_less_list
 
         if w.long_description:
             obs.obs_property_set_long_description(w.obj, w.long_description)

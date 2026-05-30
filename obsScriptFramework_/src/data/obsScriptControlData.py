@@ -320,6 +320,10 @@ class GroupData(ControlBaseData):
     """📵该分组所包含控件使用的属性集对象。"""
     folding_control_obj: Any = None  # 更清晰的命名
     """📵仅当 widget_variant 为 OBS_GROUP_CHECKABLE 时关联的折叠控制对象。"""
+    folding_visible: bool = True
+    """📵折叠控件独立可见性。"""
+    folding_enabled: bool = True
+    """📵折叠控件独立可用性。"""
     checked: bool = True  # 对于可勾选分组
     """仅当 widget_variant 为 OBS_GROUP_CHECKABLE 时有效，表示分组是否被勾选。"""
 

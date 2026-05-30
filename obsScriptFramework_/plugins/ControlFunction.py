@@ -124,7 +124,7 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         return v
 
     @staticmethod
-    def digital_reference_data1(*args, **kwargs):
+    def digital_reference_dataX(*args, **kwargs):
         v = 2000
         return v
 
@@ -158,7 +158,7 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
     ## 组合框
     @staticmethod
     def label_reference_data(*args, **kwargs):
-        v = "这是组合框标签测试"
+        v = "这是组合框/列表框元素标签测试1"
         return v
 
     @staticmethod
@@ -173,7 +173,7 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
 
     @staticmethod
     def value_reference_data(*args, **kwargs):
-        v = "这是组合框值测试"
+        v = "v这是组合框/列表框元素值测试1"
         return v
 
     @staticmethod
@@ -191,15 +191,23 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         v = [
             {
                 "label": "这是组合框/列表框元素标签测试",
-                "value": "这是组合框/列表框元素值测试",
-                "selected": False,
-                "hidden": False
+                "value": "v这是组合框/列表框元素值测试",
             },
             {
                 "label": "这是组合框/列表框元素标签测试0",
-                "value": "这是组合框/列表框元素值测试0",
-                "selected": False,
-                "hidden": False
+                "value": "v这是组合框/列表框元素值测试0",
+            },
+            {
+                "label": "这是组合框/列表框元素标签测试1",
+                "value": "v这是组合框/列表框元素值测试1",
+            },
+            {
+                "label": "这是组合框/列表框元素标签测试1",
+                "value": "v这是组合框/列表框元素值测试1",
+            },
+            {
+                "label": "这是组合框/列表框元素标签测试1",
+                "value": "v这是组合框/列表框元素值测试1",
             }
         ]
         return v
@@ -208,14 +216,22 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
     def items_reference_data0(*args, **kwargs):
         v = [
             {
-                "label": "这是组合框/列表框元素标签测试",
                 "value": "这是组合框/列表框元素值测试",
                 "selected": False,
                 "hidden": False
             },
             {
-                "label": "这是组合框/列表框元素标签测试0",
                 "value": "这是组合框/列表框元素值测试0",
+                "selected": True,
+                "hidden": False
+            },
+            {
+                "value": "这是组合框/列表框元素值测试1",
+                "selected": True,
+                "hidden": False
+            },
+            {
+                "value": "这是组合框/列表框元素值测试2",
                 "selected": False,
                 "hidden": False
             }

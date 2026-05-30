@@ -77,19 +77,37 @@ class UIUpdater:
                 f"{w.control_name}可见状态{obs.obs_property_visible(w.obj)}⏩{w.visible}"
             )
             # 更新可见性
-            if obs.obs_property_visible(w.obj) != w.visible:
-                obs.obs_property_set_visible(w.obj, w.visible)
             if w.widget_variant == GroupVariant.CHECKABLE:
-                obs.obs_property_set_visible(w.folding_control_obj, not w.visible)
+                self.Log_manager.log_info(
+                    f"--{w.control_name}折叠状态{w.folding_visible}"
+                )
+                if w.visible:
+                    obs.obs_property_set_visible(w.obj, w.folding_visible)
+                    obs.obs_property_set_visible(w.folding_control_obj, not w.folding_visible)
+                else:
+                    obs.obs_property_set_visible(w.obj, w.visible)
+                    obs.obs_property_set_visible(w.folding_control_obj, w.visible)
+            else:
+                if obs.obs_property_visible(w.obj) != w.visible:
+                    obs.obs_property_set_visible(w.obj, w.visible)
 
             self.Log_manager.log_info(
                 f"{w.control_name}启用状态{obs.obs_property_enabled(w.obj)}⏩{w.enabled}"
             )
             # 更新启用状态
-            if obs.obs_property_enabled(w.obj) != w.enabled:
-                obs.obs_property_set_enabled(w.obj, w.enabled)
             if w.widget_variant is GroupVariant.CHECKABLE:
-                obs.obs_property_set_enabled(w.folding_control_obj, not w.enabled)
+                self.Log_manager.log_info(
+                    f"--{w.control_name}折叠状态{w.folding_enabled}"
+                )
+                if w.enabled:
+                    obs.obs_property_set_enabled(w.obj, w.folding_enabled)
+                    obs.obs_property_set_enabled(w.folding_control_obj, not w.folding_enabled)
+                else:
+                    obs.obs_property_set_enabled(w.obj, w.enabled)
+                    obs.obs_property_set_enabled(w.folding_control_obj, w.enabled)
+            else:
+                if obs.obs_property_enabled(w.obj) != w.enabled:
+                    obs.obs_property_set_enabled(w.obj, w.enabled)
 
             # 根据控件分类进行数据同步
             category = w.widget_category

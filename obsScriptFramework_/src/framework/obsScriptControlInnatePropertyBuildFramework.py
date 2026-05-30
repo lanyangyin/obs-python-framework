@@ -86,7 +86,16 @@ def build_controls(
             if controls_data["widget_category"] == "GROUP" and kwargs["widget_variant"] == "CHECKABLE":
                 # 内置的可折叠分组框中折叠动作的数据变动实现
                 modified_callback_name = kwargs["modified_callback"]
-                def modified_callback(ps, p, st=None, _control_name=control_name, _modified_callback_name=modified_callback_name):
+                def group_folded_modified_callback(ps, p, st=None, _control_name=control_name, _modified_callback_name=modified_callback_name):
+                    """
+                    折叠分组框的控件变动回调函数
+                    :param ps:
+                    :param p:
+                    :param st:
+                    :param _control_name: 折叠分组框的控件名称
+                    :param _modified_callback_name: 除了折叠之外的函数实现的控件变动函数回调名称
+                    :return:
+                    """
                     widget = control_manager.get_widget_by_control_name(_control_name)
                     """获取控件管理器中的折叠分组框控件对象"""
                     group_props_name = widget.group_props_name
@@ -100,8 +109,8 @@ def build_controls(
                         else:
                             sys_common_data_manager.add_data("system", "group_folded_props_names", group_props_name, 999)
                     widget_visibility_less_list = sys_common_data_manager.get_data("system", "group_folded_props_names")
-                    widget.visible = widget.group_props_name not in widget_visibility_less_list
-                    widget.enabled = widget.group_props_name not in widget_visibility_less_list
+                    widget.folding_visible = widget.group_props_name not in widget_visibility_less_list
+                    widget.folding_enabled = widget.group_props_name not in widget_visibility_less_list
                     widget.checked = widget.group_props_name not in widget_visibility_less_list
                     if not widget.checked:
                         log_manager.log_info(f"折叠分组框{control_name}")
@@ -118,9 +127,9 @@ def build_controls(
                     )
                     modified_function_manager.property_modified(_control_name, _modified_callback_name)(ps, p, st)
                     return True
+                kwargs["modified_callback"] = group_folded_modified_callback
             else:
-                modified_callback = modified_function_manager.property_modified(control_name, kwargs["modified_callback"])
-            kwargs["modified_callback"] = modified_callback
+                kwargs["modified_callback"] = modified_function_manager.property_modified(control_name, kwargs["modified_callback"])
 
         if kwargs.get("click_callback", False):
             kwargs["click_callback"] = button_function_manager.select(kwargs["click_callback"])
