@@ -213,11 +213,13 @@ def script_properties():
                 )
             elif w.widget_variant == DigitalBoxVariant.FLOAT_SLIDER:
                 w.obj = obs.obs_properties_add_float_slider(
-                    w.props, w.control_name, w.description, w.min_val, w.max_val, w.step
+                    w.props, w.control_name, w.description,
+                    float(w.min_val), float(w.max_val), float(w.step),
                 )
             elif w.widget_variant == DigitalBoxVariant.FLOAT:
                 w.obj = obs.obs_properties_add_float(
-                    w.props, w.control_name, w.description, w.min_val, w.max_val, w.step
+                    w.props, w.control_name, w.description,
+                    float(w.min_val), float(w.max_val), float(w.step),
                 )
             if w.widget_variant == DigitalBoxVariant.INT_SLIDER or w.widget_variant == DigitalBoxVariant.INT:
                 obs.obs_property_int_set_suffix(w.obj, w.suffix)

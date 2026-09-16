@@ -13,6 +13,7 @@ from ..data.obsScriptControlData import (
     ListBoxVariant,
     GroupVariant,
 )
+from .groupFoldHandler import GroupFoldHandler   # ← 新增
 from typing import Any, Dict
 
 
@@ -31,6 +32,15 @@ def build_controls(
     """
     def pull_innate_attribute_data_log_of_control(control_name, attribute):
         log_manager.log_debug(f"拉取[{control_name}]天赋属性：{attribute}")
+
+    # 创建折叠处理器：把折叠逻辑从内联函数中抽离出来
+    group_fold_handler = GroupFoldHandler(
+        sys_common_data_manager=sys_common_data_manager,
+        control_ui_updater_manager=control_ui_updater_manager,
+        control_manager=control_manager,
+        log_manager=log_manager,
+        control_data_set_functions=getattr(ObsScriptGlobalData, "ControlDataSetFunctions", None),
+    )
 
     # ---------- 1. 创建“允许执行控件修改回调”按钮 ----------
     if not hasattr(control_manager.button, "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"):
@@ -122,45 +132,16 @@ def build_controls(
         # 处理 modified_callback
         if kwargs.get("modified_callback_enabled"):
             if controls_data["widget_category"] == "GROUP" and kwargs.get("widget_variant") == "CHECKABLE":
-                # 内置的可折叠分组框中折叠动作的数据变动实现
-                def group_folded_modified_callback(ps, p, st=None, _control_name=control_name, _modified_callback_name=kwargs["modified_callback"]):
-                    widget = control_manager.get_widget_by_control_name(_control_name)
-                    if not widget:
-                        return False
-                    group_props_name = widget.group_props_name
-                    widget_visibility_less_list = sys_common_data_manager.get_data("system", "group_folded_props_names") or []
-                    if not widget_visibility_less_list:
-                        sys_common_data_manager.add_data("system", "group_folded_props_names", group_props_name, 999)
-                    else:
-                        if group_props_name in widget_visibility_less_list:
-                            sys_common_data_manager.remove_data("system", "group_folded_props_names", group_props_name)
-                        else:
-                            sys_common_data_manager.add_data("system", "group_folded_props_names", group_props_name, 999)
-                    widget_visibility_less_list = sys_common_data_manager.get_data("system", "group_folded_props_names") or []
-                    widget.folding_visible = group_props_name not in widget_visibility_less_list
-                    widget.folding_enabled = group_props_name not in widget_visibility_less_list
-                    widget.checked = group_props_name not in widget_visibility_less_list
-                    if not widget.checked:
-                        log_manager.log_info(f"折叠分组框{_control_name}")
-                        update_widget_for_props_dict = {widget.props_name: [_control_name]}
-                    else:
-                        log_manager.log_info(f"展开分组框{_control_name}")
-                        update_widget_for_props_dict = {
-                            widget.props_name: [_control_name],
-                            widget.group_props_name: control_manager.get_props_mapping().get(widget.group_props_name, [])
-                        }
-
-                    # ← 这里插入 3 行缓存清理
-                    if ObsScriptGlobalData.ControlDataSetFunctions is not None:
-                        ObsScriptGlobalData.ControlDataSetFunctions.clear()
-
-                    control_ui_updater_manager.update(update_widget_for_props_dict=update_widget_for_props_dict)
-                    if _modified_callback_name:
-                        modified_function_manager.property_modified(_control_name, _modified_callback_name)(ps, p, st)
-                    return True
-                kwargs["modified_callback"] = group_folded_modified_callback
+                # 使用独立的 GroupFoldHandler 处理可折叠分组框
+                kwargs["modified_callback"] = group_fold_handler.make_callback(
+                    control_name=control_name,
+                    inner_callback_name=kwargs["modified_callback"],
+                    modified_function_manager=modified_function_manager,
+                )
             else:
-                kwargs["modified_callback"] = modified_function_manager.property_modified(control_name, kwargs["modified_callback"])
+                kwargs["modified_callback"] = modified_function_manager.property_modified(
+                    control_name, kwargs["modified_callback"]
+                )
 
         # 转换 widget_variant 字符串为对应的枚举值
         variant_str = kwargs.get("widget_variant")
