@@ -123,6 +123,43 @@ def _build_mock_obspython() -> types.ModuleType:
     mod.OBS_FRONTEND_EVENT_STREAMING_STARTED = 5
     mod.OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN = 30
 
+    # --- 属性读取/设置（UIUpdater 用到）---
+    mod.obs_property_visible = lambda *a, **kw: True
+    mod.obs_property_enabled = lambda *a, **kw: True
+    mod.obs_property_set_visible = _noop
+    mod.obs_property_set_enabled = _noop
+
+    mod.obs_property_int_min = lambda *a, **kw: 0
+    mod.obs_property_int_max = lambda *a, **kw: 100
+    mod.obs_property_int_step = lambda *a, **kw: 1
+    mod.obs_property_int_set_limits = _noop
+
+    mod.obs_property_float_min = lambda *a, **kw: 0.0
+    mod.obs_property_float_max = lambda *a, **kw: 100.0
+    mod.obs_property_float_step = lambda *a, **kw: 1.0
+    mod.obs_property_float_set_limits = _noop
+
+    mod.obs_property_text_info_type = lambda *a, **kw: 0
+    mod.obs_property_text_set_info_type = _noop
+
+    mod.obs_property_list_item_count = lambda *a, **kw: 0
+    mod.obs_property_list_item_name = lambda *a, **kw: ""
+    mod.obs_property_list_item_string = lambda *a, **kw: ""
+    mod.obs_property_list_clear = _noop
+    mod.obs_property_list_add_string = _noop
+    mod.obs_property_list_insert_string = _noop
+
+    mod.obs_data_array_count = lambda *a, **kw: 0
+    mod.obs_data_array_item = lambda *a, **kw: None
+    mod.obs_data_array_create = lambda *a, **kw: MagicMock(name="array")
+    mod.obs_data_array_push_back = _noop
+    mod.obs_data_array_release = _noop
+
+    mod.obs_data_create = lambda *a, **kw: MagicMock(name="data")
+    mod.obs_data_get_obj = lambda *a, **kw: None
+    mod.obs_data_set_obj = _noop
+    mod.obs_data_release = _noop
+
     return mod
 
 
