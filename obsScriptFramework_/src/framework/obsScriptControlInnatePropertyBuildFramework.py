@@ -34,19 +34,25 @@ def build_controls(
 
     # ---------- 1. 创建“允许执行控件修改回调”按钮 ----------
     if not hasattr(control_manager.button, "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"):
-        control_manager.button.add(
-            control_name="e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-            object_name="e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-            description="允许执行控件修改回调",
-            long_description="允许执行控件修改回调",
-            widget_variant=ButtonVariant.DEFAULT,
-            modified_callback_enabled=True,
-            modified_callback=modified_function_manager.property_modified(
-                "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-                None
-            ),
-            click_callback=lambda pr, ps: None,
-        )
+        try:
+            control_manager.button.add(
+                control_name="e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+                object_name="e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+                description="允许执行控件修改回调",
+                long_description="允许执行控件修改回调",
+                widget_variant=ButtonVariant.DEFAULT,
+                modified_callback_enabled=True,
+                modified_callback=modified_function_manager.property_modified(
+                    "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+                    None
+                ),
+                click_callback=lambda pr, ps: None,
+            )
+        except Exception as e:
+            log_manager.log_error(
+                f"[内置控件创建失败] '允许执行控件修改回调' 按钮创建失败: {type(e).__name__}: {e}"
+            )
+            raise
         pull_innate_attribute_data_log_of_control(
             control_name="e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
             attribute="顶部按钮控件属性组"
@@ -83,6 +89,7 @@ def build_controls(
             "widget_variant": all_props.get("widget_variant"),
             "modified_callback_enabled": all_props.get("modified_callback_enabled", False),
             "modified_callback": all_props.get("modified_callback"),
+            "source_line": controls_data.get("source_line", 0),
         }
 
         # 添加其他可能存在的字段（例如 suffix, min_val, max_val, step 等）
@@ -191,14 +198,27 @@ def build_controls(
             "folding_control_obj", "folding_visible", "folding_enabled",  # Group 运行时字段
             "group_props", "props", "obj", "load_order"  # 其他非构造参数
         ]
+
         for key in unsupported_params:
             kwargs.pop(key, None)
 
-        control_manager_category.add(
-            control_name=control_name,
-            object_name=controls_data["object_name"],
-            **kwargs,
-        )
+        try:
+            control_manager_category.add(
+                control_name=control_name,
+                object_name=controls_data["object_name"],
+                **kwargs,
+            )
+        except Exception as e:
+            log_manager.log_error(
+                f"[控件创建失败] 第 {controls_data.get('source_line', '?')} 行: "
+                f"控件 '{control_name}' (category={controls_data['widget_category']}, "
+                f"object_name='{controls_data['object_name']}') 创建失败。\n"
+                f"  异常类型: {type(e).__name__}\n"
+                f"  异常信息: {e}\n"
+                f"  kwargs: {kwargs}"
+            )
+            raise
+
         pull_innate_attribute_data_log_of_control(
             control_name=control_name,
             attribute=str(kwargs)
@@ -206,19 +226,25 @@ def build_controls(
 
     # ---------- 3. 创建“禁止执行控件修改回调”按钮 ----------
     if not hasattr(control_manager.button, "e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"):
-        control_manager.button.add(
-            control_name="e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-            object_name="e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-            description="禁止执行控件修改回调",
-            long_description="禁止执行控件修改回调",
-            widget_variant=ButtonVariant.DEFAULT,
-            modified_callback_enabled=True,
-            modified_callback=modified_function_manager.property_modified(
-                "e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
-                None
-            ),
-            click_callback=lambda pr, ps: None,
-        )
+        try:
+            control_manager.button.add(
+                control_name="e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+                object_name="e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+                description="禁止执行控件修改回调",
+                long_description="禁止执行控件修改回调",
+                widget_variant=ButtonVariant.DEFAULT,
+                modified_callback_enabled=True,
+                modified_callback=modified_function_manager.property_modified(
+                    "e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+                    None
+                ),
+                click_callback=lambda pr, ps: None,
+            )
+        except Exception as e:
+            log_manager.log_error(
+                f"[内置控件创建失败] '允许执行控件修改回调' 按钮创建失败: {type(e).__name__}: {e}"
+            )
+            raise
         pull_innate_attribute_data_log_of_control(
             control_name="e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
             attribute="底部按钮控件属性组"
