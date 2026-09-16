@@ -105,15 +105,44 @@ class ControlManager:
         """
         # 检查是否是基础group控件的名称
         if control_name == "group":
-            raise ValueError(f"control_name 'group' 是保留名称，用于基础group控件")
+            raise ValueError(
+                f"[控件唯一性校验失败] control_name 'group' 是保留名称，用于基础group控件。\n"
+                f"  请为你的控件使用其他名称。"
+            )
 
         # 验证control_name全局唯一
         if control_name in self._global_control_names:
-            raise ValueError(f"control_name '{control_name}' 已存在，必须是全局唯一的")
+            existing = self._find_widget_by_control_name(control_name)
+            existing_info = ""
+            if existing:
+                existing_info = (
+                    f"\n  已存在的控件: control_name='{existing.control_name}', "
+                    f"category={existing.widget_category.value}, "
+                    f"object_name='{existing.object_name}', "
+                    f"source_line={getattr(existing, 'source_line', '?')}"
+                )
+            raise ValueError(
+                f"[控件唯一性校验失败] control_name '{control_name}' 已存在，必须是全局唯一的。"
+                f"{existing_info}"
+            )
 
         # 验证object_name在同一分类下唯一
         if object_name in self._object_names_by_category[category]:
-            raise ValueError(f"object_name '{object_name}' 在分类 {category.value} 中已存在")
+            existing = None
+            for w in self._widgets_by_category[category].values():
+                if w.object_name == object_name:
+                    existing = w
+                    break
+            existing_info = ""
+            if existing:
+                existing_info = (
+                    f"\n  已存在的控件: control_name='{existing.control_name}', "
+                    f"source_line={getattr(existing, 'source_line', '?')}"
+                )
+            raise ValueError(
+                f"[控件唯一性校验失败] object_name '{object_name}' 在分类 {category.value} 中已存在。"
+                f" 同一分类下 object_name 必须唯一。{existing_info}"
+            )
 
     def _validate_group_props_name(self, widget: ControlBaseData) -> None:
         """
@@ -131,15 +160,25 @@ class ControlManager:
         # 1. 非基础group控件的group_props_name不能等于props_name
         if widget.group_props_name == widget.props_name:
             raise ValueError(
+                f"[分组校验失败] 第 {widget.source_line} 行: "
                 f"group控件 '{widget.control_name}' 的 "
-                f"group_props_name '{widget.group_props_name}' 不能等于 props_name"
+                f"group_props_name '{widget.group_props_name}' 不能等于 props_name '{widget.props_name}'。\n"
+                f"  请为其指定一个不同的 group_props_name（例如 '{widget.control_name}_props'）。"
             )
 
         # 2. 所有group控件的group_props_name不能重名（包括基础group的）
         if widget.group_props_name in self._group_props_names:
+            existing = self._find_group_by_group_props_name(widget.group_props_name)
+            existing_info = ""
+            if existing:
+                existing_info = (
+                    f"\n  已存在的分组: control_name='{existing.control_name}', "
+                    f"source_line={getattr(existing, 'source_line', '?')}"
+                )
             raise ValueError(
-                f"group_props_name '{widget.group_props_name}' 已存在，"
-                f"所有group控件的group_props_name不能重名"
+                f"[分组校验失败] 第 {widget.source_line} 行: "
+                f"group_props_name '{widget.group_props_name}' 已存在。"
+                f"所有 group 控件的 group_props_name 不能重名。{existing_info}"
             )
 
     def _validate_props_name(self, widget: ControlBaseData) -> None:
@@ -154,9 +193,12 @@ class ControlManager:
         """
         # 验证props_name必须存在于已注册的group_props_name中
         if widget.props_name not in self._group_props_names:
+            available = sorted(self._group_props_names)
             raise ValueError(
-                f"控件 '{widget.control_name}' 的 props_name '{widget.props_name}' "
-                f"必须来自某个group控件的group_props_name"
+                f"[属性集校验失败] 第 {widget.source_line} 行: "
+                f"控件 '{widget.control_name}' 的 props_name '{widget.props_name}' 无效。\n"
+                f"  props_name 必须来自某个 group 控件的 group_props_name。\n"
+                f"  当前可用的 group_props_name: {available}"
             )
 
     def _add_control_to_maps(self, widget: ControlBaseData) -> None:
@@ -216,6 +258,19 @@ class ControlManager:
         }
 
         return widget_classes.get(category)
+
+    def _find_widget_by_control_name(self, control_name: str) -> Optional[ControlBaseData]:
+        for category_dict in self._widgets_by_category.values():
+            if control_name in category_dict:
+                return category_dict[control_name]
+        return None
+
+    def _find_group_by_group_props_name(self, group_props_name: str) -> Optional[GroupData]:
+        for category_dict in self._widgets_by_category.values():
+            for widget in category_dict.values():
+                if isinstance(widget, GroupData) and widget.group_props_name == group_props_name:
+                    return widget
+        return None
 
     def create_widget(self, category: WidgetCategory, control_name: str, object_name: Optional[str] = None,
                       **kwargs) -> ControlBaseData:
