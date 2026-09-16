@@ -30,7 +30,7 @@ def build_controls(
     在控件管理器中添加控件对象，并拉取对应的控件天赋属性到控件管理器中
     """
     def pull_innate_attribute_data_log_of_control(control_name, attribute):
-        log_manager.log_info(f"拉取[{control_name}]天赋属性：{attribute}")
+        log_manager.log_debug(f"拉取[{control_name}]天赋属性：{attribute}")
 
     # ---------- 1. 创建“允许执行控件修改回调”按钮 ----------
     if not hasattr(control_manager.button, "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083"):
@@ -77,7 +77,7 @@ def build_controls(
             log_manager.log_error(f"控件 {controls_data['object_name']} 缺少 control_name，跳过")
             continue
 
-        log_manager.log_info(control_name)
+        log_manager.log_debug(control_name)
 
         # 构建传给 add 方法的参数字典
         kwargs = {
@@ -149,6 +149,11 @@ def build_controls(
                             widget.props_name: [_control_name],
                             widget.group_props_name: control_manager.get_props_mapping().get(widget.group_props_name, [])
                         }
+
+                    # ← 这里插入 3 行缓存清理
+                    if ObsScriptGlobalData.ControlDataSetFunctions is not None:
+                        ObsScriptGlobalData.ControlDataSetFunctions.clear()
+
                     control_ui_updater_manager.update(update_widget_for_props_dict=update_widget_for_props_dict)
                     if _modified_callback_name:
                         modified_function_manager.property_modified(_control_name, _modified_callback_name)(ps, p, st)

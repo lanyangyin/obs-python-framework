@@ -73,12 +73,12 @@ class UIUpdater:
             elif w.control_name not in update_widget_for_props_dict[w.props_name]:
                 continue
 
-            self.Log_manager.log_info(
+            self.Log_manager.log_debug(
                 f"{w.control_name}可见状态{obs.obs_property_visible(w.obj)}⏩{w.visible}"
             )
             # 更新可见性
             if w.widget_variant == GroupVariant.CHECKABLE:
-                self.Log_manager.log_info(
+                self.Log_manager.log_debug(
                     f"--{w.control_name}折叠状态{w.folding_visible}"
                 )
                 if w.visible:
@@ -91,12 +91,12 @@ class UIUpdater:
                 if obs.obs_property_visible(w.obj) != w.visible:
                     obs.obs_property_set_visible(w.obj, w.visible)
 
-            self.Log_manager.log_info(
+            self.Log_manager.log_debug(
                 f"{w.control_name}启用状态{obs.obs_property_enabled(w.obj)}⏩{w.enabled}"
             )
             # 更新启用状态
             if w.widget_variant is GroupVariant.CHECKABLE:
-                self.Log_manager.log_info(
+                self.Log_manager.log_debug(
                     f"--{w.control_name}折叠状态{w.folding_enabled}"
                 )
                 if w.enabled:
@@ -180,7 +180,7 @@ class UIUpdater:
         if type(w.checked) is not bool:
             self.Log_manager.log_warning(f"复选框 {w.control_name} 期望 bool，实际为 {type(w.checked)}")
         #  记录更新
-        self.Log_manager.log_info(f"{w.control_name}的勾选状态{current_bool}⏩{w.checked}")
+        self.Log_manager.log_debug(f"{w.control_name}的勾选状态{current_bool}⏩{w.checked}")
         #  执行更新
         if current_bool != w.checked:
             obs.obs_data_set_bool(self.script_settings, w.control_name, w.checked)
@@ -207,10 +207,10 @@ class UIUpdater:
             if type(w.digital) is not float:
                 self.Log_manager.log_warning(f"数字框 {w.control_name} 期望 float，实际为 {type(w.digital)}")
         #  记录更新
-        self.Log_manager.log_info(f"{w.control_name}最小值{current_min}⏩{w.min_val}")
-        self.Log_manager.log_info(f"{w.control_name}最大值{current_max}⏩{w.max_val}")
-        self.Log_manager.log_info(f"{w.control_name}步数{current_step}⏩{w.step}")
-        self.Log_manager.log_info(f"{w.control_name}数值{current_value}⏩{w.digital}")
+        self.Log_manager.log_debug(f"{w.control_name}最小值{current_min}⏩{w.min_val}")
+        self.Log_manager.log_debug(f"{w.control_name}最大值{current_max}⏩{w.max_val}")
+        self.Log_manager.log_debug(f"{w.control_name}步数{current_step}⏩{w.step}")
+        self.Log_manager.log_debug(f"{w.control_name}数值{current_value}⏩{w.digital}")
         #  执行更新
         if variant in (DigitalBoxVariant.INT, DigitalBoxVariant.INT_SLIDER):
             if w.min_val != current_min or w.max_val != current_max or w.step != current_step:  # 整数范围更新
@@ -238,8 +238,8 @@ class UIUpdater:
             self.Log_manager.log_warning(f"文本框 {w.control_name} 期望 str，实际为 {type(w.text)}")
         #  记录更新
         if variant is TextBoxVariant.INFO:
-            self.Log_manager.log_info(f"{w.control_name}文本提示类型{current_info_type}⏩{w.info_type}")
-        self.Log_manager.log_info(f"{w.control_name}文本{current_string}⏩{w.text}")
+            self.Log_manager.log_debug(f"{w.control_name}文本提示类型{current_info_type}⏩{w.info_type}")
+        self.Log_manager.log_debug(f"{w.control_name}文本{current_string}⏩{w.text}")
         #  执行更新
         if variant is TextBoxVariant.INFO:
             if current_info_type != w.info_type.value:  # 更新信息类型
@@ -276,8 +276,8 @@ class UIUpdater:
             self.Log_manager.log_warning(f"组合框 {w.control_name} 期望 in {w.items}，实际为 {w.value}")
         #  记录更新
         if w.items != current_options:
-            self.Log_manager.log_info(f"{w.control_name}组合框列表{current_options}⏩{w.items}")
-        self.Log_manager.log_info(f"{w.control_name}组合框显示文本{current_string}⏩{w.label}")
+            self.Log_manager.log_debug(f"{w.control_name}组合框列表{current_options}⏩{w.items}")
+        self.Log_manager.log_debug(f"{w.control_name}组合框显示文本{current_string}⏩{w.label}")
         #  执行更新
         if w.items != current_options:  # 设定组合框列表
             obs.obs_property_list_clear(w.obj)  # 清除列表
@@ -313,7 +313,7 @@ class UIUpdater:
         if not os.path.exists(w.path_text):
             self.Log_manager.log_warning(f"路径框 {w.control_name} 路径不存在: {w.path_text}")
         #  记录更新
-        self.Log_manager.log_info(f"{w.control_name}路径框{current_path}⏩{w.path_text}")
+        self.Log_manager.log_debug(f"{w.control_name}路径框{current_path}⏩{w.path_text}")
         #  执行更新
         if current_path != w.path_text:
             obs.obs_data_set_string(self.script_settings, w.control_name, w.path_text)
@@ -330,7 +330,7 @@ class UIUpdater:
                 self.Log_manager.log_warning(f"分组框 {w.control_name} 期望 bool，实际为 {type(w.checked)}")
         #  记录更新
         if variant is GroupVariant.CHECKABLE:
-            self.Log_manager.log_info(f"{w.control_name}分组框{current_bool}⏩{w.checked}")
+            self.Log_manager.log_debug(f"{w.control_name}分组框{current_bool}⏩{w.checked}")
         #  执行更新
         if variant is GroupVariant.CHECKABLE:
             if current_bool != w.checked:
@@ -350,7 +350,7 @@ class UIUpdater:
         if type(w.color_value) is not int:
             self.Log_manager.log_warning(f"颜色框 {w.control_name} 期望 int，实际为 {type(w.color_value)}")
         #  记录更新
-        self.Log_manager.log_info(
+        self.Log_manager.log_debug(
             f"{w.control_name}的颜色{int_to_color_str(current)}⏩{int_to_color_str(w.color_value)}"
         )
         #  执行更新
@@ -387,20 +387,20 @@ class UIUpdater:
         if type(w.font_flags) is not int:
             self.Log_manager.log_warning(f"字体框 {w.control_name} 期望 int，实际为 {type(w.font_flags)}")
         #  记录更新
-        self.Log_manager.log_info(f"{w.control_name}的字体系列名称{current_face}⏩{w.font_face}")
-        self.Log_manager.log_info(f"{w.control_name}的字体大小{current_size}px⏩{w.font_size}px")
-        self.Log_manager.log_info(f"{w.control_name}的字体样式{current_style}⏩{w.font_style}")
-        self.Log_manager.log_info(f"{w.control_name}的字体标志位{current_flags}⏩{w.font_flags}")
+        self.Log_manager.log_debug(f"{w.control_name}的字体系列名称{current_face}⏩{w.font_face}")
+        self.Log_manager.log_debug(f"{w.control_name}的字体大小{current_size}px⏩{w.font_size}px")
+        self.Log_manager.log_debug(f"{w.control_name}的字体样式{current_style}⏩{w.font_style}")
+        self.Log_manager.log_debug(f"{w.control_name}的字体标志位{current_flags}⏩{w.font_flags}")
         if current_flags is not None:
-            self.Log_manager.log_info(f"{w.control_name}的标志粗体{bool(current_flags & 1)}⏩{w.font_bold}")
-            self.Log_manager.log_info(f"{w.control_name}的标志斜体{bool(current_flags & 2)}⏩{w.font_italic}")
-            self.Log_manager.log_info(f"{w.control_name}的标志下划线{bool(current_flags & 4)}⏩{w.font_underline}")
-            self.Log_manager.log_info(f"{w.control_name}的标志删除线{bool(current_flags & 8)}⏩{w.font_strikeout}")
+            self.Log_manager.log_debug(f"{w.control_name}的标志粗体{bool(current_flags & 1)}⏩{w.font_bold}")
+            self.Log_manager.log_debug(f"{w.control_name}的标志斜体{bool(current_flags & 2)}⏩{w.font_italic}")
+            self.Log_manager.log_debug(f"{w.control_name}的标志下划线{bool(current_flags & 4)}⏩{w.font_underline}")
+            self.Log_manager.log_debug(f"{w.control_name}的标志删除线{bool(current_flags & 8)}⏩{w.font_strikeout}")
         else:
-            self.Log_manager.log_info(f"{w.control_name}的标志粗体(无数据)⏩{w.font_bold}")
-            self.Log_manager.log_info(f"{w.control_name}的标志斜体(无数据)⏩{w.font_italic}")
-            self.Log_manager.log_info(f"{w.control_name}的标志下划线(无数据)⏩{w.font_underline}")
-            self.Log_manager.log_info(f"{w.control_name}的标志删除线(无数据)⏩{w.font_strikeout}")
+            self.Log_manager.log_debug(f"{w.control_name}的标志粗体(无数据)⏩{w.font_bold}")
+            self.Log_manager.log_debug(f"{w.control_name}的标志斜体(无数据)⏩{w.font_italic}")
+            self.Log_manager.log_debug(f"{w.control_name}的标志下划线(无数据)⏩{w.font_underline}")
+            self.Log_manager.log_debug(f"{w.control_name}的标志删除线(无数据)⏩{w.font_strikeout}")
 
         #  执行更新
         if (current_face != w.font_face or current_size != w.font_size or
@@ -444,7 +444,7 @@ class UIUpdater:
 
         # 记录更新
         if current_items != w.items:
-            self.Log_manager.log_info(f"{w.control_name}列表框内容{current_items}⏩{w.items}")
+            self.Log_manager.log_debug(f"{w.control_name}列表框内容{current_items}⏩{w.items}")
 
         # 执行更新（从模型写回 settings）
         # 注意：这里假定 w.items 已经是模型希望同步到的目标状态

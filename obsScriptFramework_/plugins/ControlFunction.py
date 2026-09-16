@@ -34,7 +34,10 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
             control_name
         :return: 是否展开
         """
-        ControlDataSetFunction.clear()
+        # 注意：不再在这里调用 ControlDataSetFunction.clear()。
+        # 缓存清理职责已上移到状态变化点（group_folded_modified_callback）
+        # 和初始化点（apply_user_properties），避免每次调用都清缓存。
+        # print(f"[DEBUG] group_foldless_is called for {kwargs.get('control_name')}")
         control_name = kwargs["control_name"]
         widget = self.control_manager.get_widget_by_control_name(control_name)
         group_props_name = widget.group_props_name

@@ -183,10 +183,10 @@ def script_properties():
     # 包载入判断
     if not ImportSuccess[0]:
         return None
-    ObsScriptGlobalManager.Log_manager.log_info(f"生成控件")
+    ObsScriptGlobalManager.Log_manager.log_debug(f"生成控件")
 
     for props_name in ObsScriptGlobalManager.control_manager.available_group_props_names:
-        ObsScriptGlobalManager.Log_manager.log_info(f"构建属性集: {props_name}")
+        ObsScriptGlobalManager.Log_manager.log_debug(f"构建属性集: {props_name}")
         ObsScriptGlobalData.props_dict[props_name] = obs.obs_properties_create()
 
     sorted_widgets = ObsScriptGlobalManager.control_manager.get_widgets_by_load_order()
@@ -198,11 +198,11 @@ def script_properties():
         # 获取按载入次序排序的所有控件列表
         if w.widget_category == WidgetCategory.CHECKBOX:
             # 添加复选框控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"复选框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"复选框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_bool(w.props, w.control_name, w.description)
         elif w.widget_category == WidgetCategory.DIGITALBOX:
             # 添加数字控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"数字框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"数字框控件: {w.control_name} 【{w.description}】")
             if w.widget_variant == DigitalBoxVariant.INT_SLIDER:
                 w.obj = obs.obs_properties_add_int_slider(
                     w.props, w.control_name, w.description, w.min_val, w.max_val, w.step
@@ -225,11 +225,11 @@ def script_properties():
                 obs.obs_property_float_set_suffix(w.obj, w.suffix)
         elif w.widget_category == WidgetCategory.TEXTBOX:
             # 添加文本框控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"文本框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"文本框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_text(w.props, w.control_name, w.description, w.widget_variant.value)
         elif w.widget_category == WidgetCategory.BUTTON:
             # 添加按钮控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"按钮控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"按钮控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_button(
                 w.props, w.control_name, w.description, w.click_callback
             )
@@ -238,42 +238,42 @@ def script_properties():
                 obs.obs_property_button_set_url(w.obj, w.url)
         elif w.widget_category == WidgetCategory.COMBOBOX:
             # 添加组合框控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"组合框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"组合框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_list(
                 w.props, w.control_name, w.description, w.widget_variant.value, obs.OBS_COMBO_FORMAT_STRING
             )
         elif w.widget_category == WidgetCategory.PATHBOX:
             # 添加路径对话框控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"路径对话框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"路径对话框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_path(
                 w.props, w.control_name, w.description, w.widget_variant.value, w.filter_str, w.default_path
             )
         elif w.widget_category == WidgetCategory.COLORBOX:
             # 添加颜色对话框控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"颜色对话框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"颜色对话框控件: {w.control_name} 【{w.description}】")
             if w.widget_variant == ColorBoxVariant.COLOR:
                 w.obj = obs.obs_properties_add_color(w.props, w.control_name, w.description)
             elif w.widget_variant == ColorBoxVariant.ALPHA:
                 w.obj = obs.obs_properties_add_color_alpha(w.props, w.control_name, w.description)
         elif w.widget_category == WidgetCategory.FONTBOX:
             # 添加字体对话框控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"字体对话框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"字体对话框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_font(w.props, w.control_name, w.description)
         elif w.widget_category == WidgetCategory.LISTBOX:
             # 添加列表对话框控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"列表对话框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"列表对话框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_editable_list(
                 w.props, w.control_name, w.description, w.widget_variant.value, w.filter_str, w.default_path
             )
         elif w.widget_category == WidgetCategory.GROUP:
             # 分组框控件
-            ObsScriptGlobalManager.Log_manager.log_info(f"分组框控件: {w.control_name} 【{w.description}】")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"分组框控件: {w.control_name} 【{w.description}】")
             w.obj = obs.obs_properties_add_group(
                 w.props, w.control_name, w.description + f"{'[⏬]' if w.widget_variant == GroupVariant.CHECKABLE else ''}", w.widget_variant.value, w.group_props
             )
             if w.widget_variant == GroupVariant.CHECKABLE:  # 如果分组框的派生类型是复选分组框
                 # 添加复选框控件作为折叠分组框
-                ObsScriptGlobalManager.Log_manager.log_info(f"折叠分组框[复选框控件]: {w.control_name} 【{w.description}】")
+                ObsScriptGlobalManager.Log_manager.log_debug(f"折叠分组框[复选框控件]: {w.control_name} 【{w.description}】")
                 w.folding_control_obj = obs.obs_properties_add_bool(w.props, w.control_name.encode().hex(), w.description + "[⏫]")
                 widget_visibility_less_list = ObsScriptGlobalManager.sys_common_data_manager.get_data("system", "group_folded_props_names")
                 w.folding_visible = w.group_props_name not in widget_visibility_less_list
@@ -284,10 +284,10 @@ def script_properties():
             obs.obs_property_set_long_description(w.obj, w.long_description)
 
         if w.modified_callback_enabled:
-            ObsScriptGlobalManager.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
+            ObsScriptGlobalManager.Log_manager.log_debug(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
             obs.obs_property_set_modified_callback(w.obj, w.modified_callback)
             if w.widget_variant == GroupVariant.CHECKABLE:  # 如果分组框的派生类型是复选分组框
-                ObsScriptGlobalManager.Log_manager.log_info(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
+                ObsScriptGlobalManager.Log_manager.log_debug(f"为{w.widget_category}: 【{w.description}】添加钩子函数")
                 obs.obs_property_set_modified_callback(w.folding_control_obj, w.modified_callback)
     # GlobalVariableOfData.props_dict = props_dict
     # 更新UI界面数据#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*
