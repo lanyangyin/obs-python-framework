@@ -7,7 +7,7 @@
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/obsScriptFramework_/LOG" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.9 (obs-python-framework)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="D:\Documents\PycharmProjects\obs-python-framework\.venv" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PackageRequirementsSettings">
