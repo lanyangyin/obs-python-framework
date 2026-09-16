@@ -30,6 +30,7 @@ class ControlTemplateParser:
         :param data_path: 控件数据文件路径（数据行）
         :param initial_props_name: 默认的props名称
         :return: 解析结果字典
+        :raises ValueError: 当文件为空或结构不合法时
         """
         # 1. 读取属性定义文件，提取模板行
         with open(attribute_def_path, 'r', encoding='utf-8') as f:
@@ -37,7 +38,10 @@ class ControlTemplateParser:
             attr_rows = list(reader)
 
         if not attr_rows:
-            return {"error": "Empty attribute definition file"}
+            raise ValueError(
+                f"[CSV解析错误] 属性定义文件为空: {attribute_def_path}\n"
+                f"  请确认文件存在且包含表头行与至少一行模板行（首列为 '-'）。"
+            )
 
         headers = attr_rows[0]
 
@@ -53,7 +57,7 @@ class ControlTemplateParser:
 
         # 提取模板行（以 '-' 开头）
         template_rows = []
-        for row in attr_rows[1:]:
+        for idx, row in enumerate(attr_rows[1:], start=2):
             if not any(row):
                 continue  # 跳过可能的空行
             if row[0] == '-':
@@ -61,6 +65,12 @@ class ControlTemplateParser:
             else:
                 # 属性定义文件应只有模板行，遇到非模板行可停止或忽略
                 break
+
+        if not template_rows:
+            raise ValueError(
+                f"[CSV解析错误] 属性定义文件 {attribute_def_path} 中未找到任何模板行。\n"
+                f"  模板行的首列应为 '-'，用于定义每种控件类型的字段要求。"
+            )
 
         # 构建模板
         self._build_templates(headers, template_rows)
@@ -71,17 +81,27 @@ class ControlTemplateParser:
             data_rows_all = list(reader)
 
         if not data_rows_all:
-            return {"error": "Empty data file"}
+            raise ValueError(
+                f"[CSV解析错误] 数据文件为空: {data_path}\n"
+                f"  请确认文件存在且包含表头行与至少一行控件数据。"
+            )
 
         # 数据文件的第一行应为标题（与属性定义文件的标题一致）
         data_headers = data_rows_all[0]
-        # 可在此验证标题一致性，但略过
+        if data_headers != headers:
+            raise ValueError(
+                f"[CSV解析错误] 数据文件 {data_path} 的表头与属性定义文件 {attribute_def_path} 不一致。\n"
+                f"  数据文件表头: {data_headers}\n"
+                f"  属性定义表头: {headers}"
+            )
 
-        # 数据行从第二行开始
+        # 数据行从第二行开始（第1行为表头）
         data_rows = data_rows_all[1:]
 
         # 3. 解析数据并构建层次结构
-        root_controls, all_controls = self._parse_data_rows_with_props(headers, data_rows, initial_props_name)
+        root_controls, all_controls = self._parse_data_rows_with_props(
+            headers, data_rows, initial_props_name, first_data_line=2
+        )
 
         return {
             "templates": self.templates,
@@ -103,8 +123,18 @@ class ControlTemplateParser:
 
     def _build_templates(self, headers: List[str], template_rows: List[List[str]]) -> None:
         """构建控件模板"""
-        for row in template_rows:
-            widget_type = row[1]
+        for row_idx, row in enumerate(template_rows, start=2):
+            widget_type = row[1].strip() if len(row) > 1 else ""
+            if not widget_type:
+                raise ValueError(
+                    f"[CSV解析错误] 属性定义文件第 {row_idx} 行: 控件类型（第2列）为空。\n"
+                    f"  行内容: {row}"
+                )
+            if widget_type in self.templates:
+                raise ValueError(
+                    f"[CSV解析错误] 属性定义文件第 {row_idx} 行: 控件类型 '{widget_type}' 重复定义。"
+                )
+
             template = {
                 "required_fields": [],
                 "optional_fields": [],
@@ -134,38 +164,57 @@ class ControlTemplateParser:
                 return i
         return -1
 
-    def _parse_data_rows_with_props(self, headers: List[str], rows: List[List[str]], initial_props_name) -> Tuple[
-        List[Dict[str, Any]], List[Dict[str, Any]]]:
+    def _parse_data_rows_with_props(
+            self,
+            headers: List[str],
+            rows: List[List[str]],
+            initial_props_name: str,
+            first_data_line: int = 2,
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """解析数据行，处理props层级（增加跳过无效行的健壮性）"""
         all_controls = []
         stack = []
         root_controls = []
 
-        for row in rows:
+        for row_idx, row in enumerate(rows):
+            line_num = first_data_line + row_idx
+
             if not any(row):
                 continue
 
             # 确保有足够的列数
             if len(row) < 4:
-                continue
+                raise ValueError(
+                    f"[CSV解析错误] 数据文件第 {line_num} 行: 列数不足（至少需要4列，实际 {len(row)} 列）。\n"
+                    f"  行内容: {row}"
+                )
 
             object_name = row[3].strip()
-            widget_type = row[1].strip()
+            widget_type = row[1].strip() if len(row) > 1 else ""
 
             # 跳过控件类型为空的行
             if not widget_type:
                 continue
 
-            # 跳过没有模板的控件类型（可选，打印警告）
+            # 跳过没有模板的控件类型
             if widget_type not in self.templates:
-                print(f"Warning: Skipping unknown widget type '{widget_type}' for object '{object_name}'")
-                continue
+                raise ValueError(
+                    f"[CSV解析错误] 数据文件第 {line_num} 行: 未知控件类型 '{widget_type}'"
+                    f"（object_name='{object_name}'）。\n"
+                    f"  已知类型: {sorted(self.templates.keys())}\n"
+                    f"  请检查 widgetAttributeDefinitionData.csv 中是否定义了该控件类型。"
+                )
 
             level = 0
             original_name = object_name
             while object_name.startswith('→'):
                 level += 1
                 object_name = object_name[1:]
+
+            if not object_name:
+                raise ValueError(
+                    f"[CSV解析错误] 数据文件第 {line_num} 行: object_name 为空（去掉 '→' 前缀后）。"
+                )
 
             group_props_name = None
             if self.group_props_name_col_idx is not None and self.group_props_name_col_idx < len(row):
@@ -197,12 +246,18 @@ class ControlTemplateParser:
                 "group_props_name": group_props_name,
                 "properties": {},
                 "group_properties": defaultdict(dict),
-                "children": []
+                "children": [],
+                "source_line": line_num,
             }
 
             for header, info in template["field_info"].items():
                 col_index = info["index"]
                 if col_index >= len(row):
+                    if info["required"]:
+                        raise ValueError(
+                            f"[CSV解析错误] 数据文件第 {line_num} 行: 控件 '{object_name}'"
+                            f"（类型 {widget_type}）缺少必填列 '{header}'（第 {col_index + 1} 列）。"
+                        )
                     continue
                 value = row[col_index].strip()
                 if value == 'X':
@@ -212,7 +267,13 @@ class ControlTemplateParser:
                 elif value.startswith('"') and value.endswith('"'):
                     processed_value = value[1:-1].replace('""', '"')
                 else:
-                    processed_value = self._parse_value(value)
+                    try:
+                        processed_value = self._parse_value(value)
+                    except Exception as e:
+                        raise ValueError(
+                            f"[CSV解析错误] 数据文件第 {line_num} 行: 控件 '{object_name}' 列 '{header}'"
+                            f" 的值 '{value}' 无法解析: {type(e).__name__}: {e}"
+                        ) from e
 
                 group_idx = info["group"]
                 if group_idx == 0:

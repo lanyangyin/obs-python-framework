@@ -221,6 +221,8 @@ class ControlBaseData:
     """控件的可见状态。"""
     enabled: bool = True
     """控件的可用（是否灰显）状态。"""
+    source_line: int = 0
+    """📵🥚控件在 widgetData.csv 中的行号，用于错误定位。"""
 
 
 @dataclass
