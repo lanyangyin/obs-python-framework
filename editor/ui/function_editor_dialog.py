@@ -1,4 +1,5 @@
 """函数体编辑对话框。"""
+import sys
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
@@ -17,16 +18,29 @@ class FunctionEditorDialog(QDialog):
     def __init__(self, loc: FunctionLocation, parent=None):
         super().__init__(parent)
         self._loc = loc
+        self._deleted = False
+        self._init_error = None
 
-        self.setWindowTitle(f"编辑函数：{loc.function_name}")
+        try:
+            self._build_ui()
+        except Exception as e:
+            import traceback
+            self._init_error = (
+                f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}"
+            )
+            print(f"[FunctionEditorDialog] 初始化失败:\n{self._init_error}",
+                  file=sys.stderr)
+
+    def _build_ui(self):
+        self.setWindowTitle(f"编辑函数：{self._loc.function_name}")
         self.resize(760, 560)
 
         layout = QVBoxLayout(self)
 
         info = QLabel(
-            f"<b>文件：</b> {loc.source_path}<br>"
-            f"<b>类：</b> {loc.class_name}　"
-            f"<b>方法：</b> {loc.function_name}"
+            f"<b>文件：</b> {self._loc.source_path}<br>"
+            f"<b>类：</b> {self._loc.class_name}　"
+            f"<b>方法：</b> {self._loc.function_name}"
         )
         info.setTextFormat(Qt.RichText)
         info.setWordWrap(True)
@@ -37,7 +51,7 @@ class FunctionEditorDialog(QDialog):
         layout.addWidget(sig_label)
 
         self._sig_view = QPlainTextEdit()
-        self._sig_view.setPlainText(loc.signature)
+        self._sig_view.setPlainText(self._loc.signature)
         self._sig_view.setReadOnly(True)
         self._sig_view.setFixedHeight(80)
         self._sig_view.setFont(self._mono_font())
@@ -48,7 +62,7 @@ class FunctionEditorDialog(QDialog):
         layout.addWidget(body_label)
 
         self._body_edit = QPlainTextEdit()
-        self._body_edit.setPlainText(read_function_body(loc))
+        self._body_edit.setPlainText(read_function_body(self._loc))
         self._body_edit.setFont(self._mono_font())
         self._body_edit.setTabStopDistance(32)
         layout.addWidget(self._body_edit, 1)
@@ -65,12 +79,20 @@ class FunctionEditorDialog(QDialog):
         buttons.button(QDialogButtonBox.Save).setText("保存并重载")
         buttons.accepted.connect(self._on_save)
         buttons.rejected.connect(self.reject)
+
+        btn_delete = buttons.addButton("删除函数", QDialogButtonBox.DestructiveRole)
+        btn_delete.clicked.connect(self._on_delete)
+
         layout.addWidget(buttons)
 
     # ------------------------------------------------------------------
     @staticmethod
     def _mono_font():
-        f = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        try:
+            f = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+        except AttributeError:
+            # PySide6 旧版本兼容
+            f = QFontDatabase.systemFont(QFontDatabase.FixedFont)
         f.setPointSize(10)
         return f
 
@@ -107,3 +129,20 @@ class FunctionEditorDialog(QDialog):
             )
 
         self.accept()
+
+    def _on_delete(self):
+        answer = QMessageBox.question(
+            self, "确认删除",
+            f"确认删除函数 '{self._loc.function_name}'？\n\n"
+            f"将从 {self._loc.source_path.name} 中移除它的定义。\n"
+            f"引用该函数的控件字段也会被清空。",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer != QMessageBox.Yes:
+            return
+        self._deleted = True
+        self.accept()
+
+    def was_deleted(self) -> bool:
+        return self._deleted

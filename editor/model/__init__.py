@@ -15,6 +15,7 @@ from .function_registry import (
     list_control_functions,
     list_button_functions,
     list_all_function_names,
+    list_functions_for_field,
 )
 from .function_editor import (
     FunctionLocation,
@@ -23,6 +24,11 @@ from .function_editor import (
     write_function_body,
     reload_module,
     guess_owner_class,
+    get_module_name,
+    function_exists,
+    append_function,
+    delete_function,
+    clear_references,
 )
 from .props_utils import recompute_props_names
 from .diff import (
@@ -65,4 +71,10 @@ __all__ = [
     "write_function_body",
     "reload_module",
     "guess_owner_class",
+    "get_module_name",
+    "function_exists",
+    "append_function",
+    "delete_function",
+    "clear_references",
+    "list_functions_for_field",
 ]

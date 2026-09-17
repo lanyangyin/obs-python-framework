@@ -530,21 +530,56 @@ class MainWindow(QMainWindow):
             self.preview_panel.load_tree(self._tree)
 
     def _on_function_edit_requested(self, node, function_name, field_key):
-        """双击函数名字段 → 打开函数体编辑对话框。"""
+        """点击 {} 按钮 → 打开函数体编辑对话框，或询问是否新建。"""
         from editor.model.function_editor import (
-            locate_function, guess_owner_class,
+            locate_function, guess_owner_class, function_exists,
         )
         from editor.ui.function_editor_dialog import FunctionEditorDialog
         from editor.model import clear_control_cache
 
-        if not function_name or not function_name.isidentifier():
+        self._log.info(
+            f"请求编辑函数: field={field_key}, "
+            f"value={function_name!r}, node={getattr(node, 'control_name', '?')}"
+        )
+
+        function_name = (function_name or "").strip()
+
+        # 情况 1：空值 —— 询问输入函数名
+        if not function_name:
+            QMessageBox.information(
+                self, "提示",
+                "请先在字段中输入或选择一个函数名，再点击 {} 按钮。\n\n"
+                "或直接在字段中输入新的函数名，然后点击 {} 按钮来创建。"
+            )
+            return
+
+        # 情况 2：不是合法标识符
+        if not function_name.isidentifier():
             QMessageBox.warning(
                 self, "提示",
-                f"当前值 '{function_name}' 不是合法的函数名。"
+                f"'{function_name}' 不是合法的 Python 函数名。\n"
+                f"函数名只能包含字母、数字、下划线，且不能以数字开头。"
             )
             return
 
         owner_class = guess_owner_class(field_key, function_name)
+
+        # 情况 3：函数不存在 → 询问是否创建
+        if not function_exists(function_name, owner_class=owner_class):
+            answer = QMessageBox.question(
+                self, "函数不存在",
+                f"函数 '{function_name}' 在 {owner_class} 中不存在。\n\n"
+                f"是否创建它并打开编辑？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if answer != QMessageBox.Yes:
+                return
+            if not self._create_function(owner_class, function_name, field_key):
+                return
+            # 继续走下面的编辑流程
+
+        # 情况 4：定位并打开编辑对话框
         try:
             loc = locate_function(function_name, owner_class=owner_class)
         except (FileNotFoundError, ValueError) as e:
@@ -556,18 +591,153 @@ class MainWindow(QMainWindow):
             )
             return
 
-        dlg = FunctionEditorDialog(loc, self)
-        if dlg.exec() != QDialog.Accepted:
+        self._log.info(
+            f"准备打开编辑对话框: {function_name} ({owner_class}) "
+            f"@{loc.source_path.name}:{loc.body_start_line}"
+        )
+
+        try:
+            dlg = FunctionEditorDialog(loc, self)
+        except Exception as e:
+            log_exception(self._log, "FunctionEditorDialog 构造失败", e)
+            QMessageBox.critical(
+                self, "错误",
+                f"无法创建编辑器对话框：\n{type(e).__name__}: {e}"
+            )
             return
 
-        # 重载后清缓存、刷预览
+        # 如果 __init__ 内部有异常，Dialog 会记录到 _init_error
+        if getattr(dlg, "_init_error", None):
+            QMessageBox.critical(
+                self, "对话框初始化失败",
+                f"编辑器对话框初始化失败：\n\n{dlg._init_error}"
+            )
+            return
+
+        try:
+            result = dlg.exec()
+        except Exception as e:
+            log_exception(self._log, "dlg.exec() 异常", e)
+            QMessageBox.critical(
+                self, "错误", f"对话框执行异常：\n{e}"
+            )
+            return
+
+        self._log.info(f"对话框返回: {result} (Accepted={QDialog.Accepted})")
+        if result != QDialog.Accepted:
+            return
+
+        if dlg.was_deleted():
+            self._handle_function_deleted(owner_class, function_name, field_key)
+        else:
+            self._handle_function_saved(owner_class, function_name, field_key)
+
+    def _handle_function_saved(self, owner_class, function_name, field_key):
+        """函数体已保存。"""
+        from editor.model import clear_control_cache
         clear_control_cache()
         if self._tree is not None:
             self.preview_panel.load_tree(self._tree)
+        self.property_panel.refresh_function_candidates()
         self.property_panel.refresh_field(field_key)
         self._log.info(
             f"已编辑并重载函数：{function_name} ({owner_class})"
         )
+
+    def _handle_function_deleted(self, owner_class, function_name, field_key):
+        """函数已从源码中删除。"""
+        from editor.model.function_editor import (
+            delete_function, reload_module, get_module_name,
+        )
+        from editor.model import clear_control_cache, clear_references
+
+        # 1. 从源码中删除
+        try:
+            delete_function(owner_class, function_name)
+        except Exception as e:
+            log_exception(
+                self._log, f"删除函数失败: {function_name}", e
+            )
+            QMessageBox.critical(
+                self, "删除失败",
+                f"无法删除函数 '{function_name}'：\n"
+                f"{type(e).__name__}: {e}"
+            )
+            return
+
+        # 2. 清空所有引用该函数的字段
+        n_cleared = 0
+        if self._tree is not None:
+            n_cleared = clear_references(self._tree, function_name)
+
+        # 3. 重载模块
+        try:
+            module_name = get_module_name(owner_class)
+            reload_module(module_name)
+        except Exception as e:
+            QMessageBox.warning(
+                self, "重载失败",
+                f"函数已从文件中删除，但模块重载失败：\n{e}\n\n"
+                f"请重启编辑器让改动生效。"
+            )
+
+        # 4. 刷新
+        clear_control_cache()
+        if self._tree is not None:
+            self.preview_panel.load_tree(self._tree)
+            # 如果属性面板上显示的字段引用被删函数，也要刷新
+            self.property_panel.set_node(self._selected_node)
+        self.property_panel.refresh_function_candidates()
+
+        self._log.info(
+            f"已删除函数：{function_name} ({owner_class})，"
+            f"清空 {n_cleared} 处引用"
+        )
+
+        QMessageBox.information(
+            self, "删除完成",
+            f"函数 '{function_name}' 已删除。\n"
+            f"共清空 {n_cleared} 处引用。"
+        )
+
+    def _create_function(self, owner_class: str, func_name: str,
+                         field_key: str) -> bool:
+        """在类末尾追加新函数，重载模块，刷新候选。返回是否成功。"""
+        from editor.model.function_editor import (
+            append_function, reload_module, get_module_name,
+        )
+        from editor.model import clear_control_cache
+
+        try:
+            append_function(owner_class, func_name)
+        except Exception as e:
+            log_exception(self._log, f"创建函数失败: {func_name}", e)
+            QMessageBox.critical(
+                self, "创建失败",
+                f"无法创建函数 '{func_name}'：\n{type(e).__name__}: {e}"
+            )
+            return False
+
+        # 重载模块
+        try:
+            module_name = get_module_name(owner_class)
+            reload_module(module_name)
+        except Exception as e:
+            QMessageBox.warning(
+                self, "重载失败",
+                f"函数已写入文件，但模块重载失败：\n{e}\n\n"
+                f"请重启编辑器让改动生效。"
+            )
+            self._log.warning(f"模块重载失败: {e}")
+
+        # 刷新
+        clear_control_cache()
+        self.property_panel.refresh_function_candidates()
+        if self._tree is not None:
+            self.preview_panel.load_tree(self._tree)
+
+        self._log.info(f"已创建函数：{func_name} ({owner_class})")
+        return True
 
     def _on_edit_command_applied(self, node, field):
         """

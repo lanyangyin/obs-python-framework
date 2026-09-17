@@ -51,3 +51,16 @@ def _list_public_callables(cls) -> List[str]:
         if callable(attr):
             names.append(name)
     return sorted(names)
+
+def list_functions_for_field(field_key: str) -> List[str]:
+    """
+    根据字段名返回合适的函数候选列表。
+    - modified_callback / click_callback -> BtnFunction
+    - 其他（含自由属性）-> ControlDataSetFunction
+    """
+    key = field_key or ""
+    if key.startswith("prop::"):
+        key = key[len("prop::"):]
+    if key in ("modified_callback", "click_callback"):
+        return list_button_functions()
+    return list_control_functions()

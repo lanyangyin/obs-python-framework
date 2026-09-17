@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 from editor.model import (
     WidgetNode, WidgetTree,
     list_control_functions, list_all_function_names,
-    list_variants_for,
+    list_variants_for, list_functions_for_field, list_button_functions,
 )
 from editor.ui.collapsible_section import CollapsibleSection
 
@@ -93,8 +93,19 @@ class _FunctionNameEditor(QWidget):
         self._edit_btn.setText("{}")
         self._edit_btn.setToolTip("点击编辑函数体")
         self._edit_btn.setFixedWidth(28)
-        self._edit_btn.clicked.connect(self.editRequested)
+        self._edit_btn.clicked.connect(self._on_edit_btn_clicked)
         layout.addWidget(self._edit_btn)
+
+    def set_candidates(self, candidates):
+        """更新下拉候选，保留当前文本。"""
+        current = self._combo.currentText()
+        self._combo.blockSignals(True)
+        self._combo.clear()
+        self._combo.addItem("")
+        for c in candidates:
+            self._combo.addItem(c)
+        self._combo.setCurrentText(current)
+        self._combo.blockSignals(False)
 
     def text(self) -> str:
         return self._combo.currentText()
@@ -108,6 +119,10 @@ class _FunctionNameEditor(QWidget):
         super().blockSignals(b)
         self._combo.blockSignals(b)
         self._edit_btn.blockSignals(b)
+
+    def _on_edit_btn_clicked(self, checked=False):
+        """QToolButton.clicked 带一个 bool 参数，用一个中间方法转发。"""
+        self.editRequested.emit()
 
 def _make_readonly_widget(widget: QWidget) -> None:
     """
@@ -284,6 +299,15 @@ class PropertyPanel(QWidget):
         finally:
             editor.blockSignals(False)
 
+    def refresh_function_candidates(self):
+        """重新加载所有函数名字段的下拉候选。"""
+        from editor.model import list_functions_for_field
+        for key, editor in self._editors.items():
+            if not isinstance(editor, _FunctionNameEditor):
+                continue
+            # key 可能是 "modified_callback" 或 "prop::xxx"
+            editor.set_candidates(list_functions_for_field(key))
+
     # ------------------------------------------------------------------
     # 内部：显示/隐藏
     # ------------------------------------------------------------------
@@ -448,14 +472,14 @@ class PropertyPanel(QWidget):
         if field == "modified_callback":
             editor = _FunctionNameEditor(
                 str(value) if value else "",
-                list_control_functions(),
+                list_button_functions(),
             )
             editor.textChanged.connect(
                 lambda text: self._on_field_changed(node, field, text or None)
             )
             editor.editRequested.connect(
-                lambda: self.function_edit_requested.emit(
-                    node, str(value) if value else "", field
+                lambda e=editor, f=field: self.function_edit_requested.emit(
+                    node, e.text(), f
                 )
             )
             return editor
@@ -492,14 +516,14 @@ class PropertyPanel(QWidget):
         if prop_name in FUNCTION_FIELD_NAMES:
             editor = _FunctionNameEditor(
                 str(value) if value is not None else "",
-                list_all_function_names(),
+                list_functions_for_field(f"prop::{prop_name}"),
             )
             editor.textChanged.connect(
                 lambda text, pn=prop_name: self._on_property_changed(node, pn, text)
             )
             editor.editRequested.connect(
-                lambda pn=prop_name, v=value: self.function_edit_requested.emit(
-                    node, str(v) if v else "", f"prop::{pn}"
+                lambda e=editor, pn=prop_name: self.function_edit_requested.emit(
+                    node, e.text(), f"prop::{pn}"
                 )
             )
             return editor
