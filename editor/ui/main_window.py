@@ -24,13 +24,17 @@ from editor.ui.commands import (
     AddNodeCommand, RemoveNodeCommand, MoveNodeCommand, EditFieldCommand,
 )
 from editor.ui.new_node_dialog import NewNodeDialog
-
+from editor.settings_manager import load_settings, save_settings, EditorSettings
+from editor.ui.style_utils import apply_to_app
+from editor.ui.settings_dialog import SettingsDialog
+from PySide6.QtWidgets import QApplication
 
 class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
         self._log = get_logger()
+        self._editor_settings = load_settings()
         self._log.info("MainWindow 初始化")
         self.setWindowTitle("OBS Script Framework - 控件编辑器")
         self.resize(1200, 700)
@@ -112,6 +116,10 @@ class MainWindow(QMainWindow):
         tb.addAction(self._act_down)
 
         tb.addSeparator()
+
+        act_settings = QAction("设置...", self)
+        act_settings.triggered.connect(self.action_open_settings)
+        tb.addAction(act_settings)
 
         act_log = QAction("打开日志目录", self)
         act_log.triggered.connect(self.action_open_log_dir)
@@ -552,6 +560,15 @@ class MainWindow(QMainWindow):
 
     def action_move_down(self):
         self._move_selected(+1)
+
+    def action_open_settings(self):
+        dlg = SettingsDialog(self._editor_settings, self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        self._editor_settings = dlg.result_settings()
+        save_settings(self._editor_settings)
+        apply_to_app(QApplication.instance(), self._editor_settings)
+        self._log.info(f"编辑器设置已更新: theme={self._editor_settings.theme}")
 
     def _move_selected(self, delta: int):
         node = self._selected_node

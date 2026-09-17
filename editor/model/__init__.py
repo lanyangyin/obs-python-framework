@@ -19,6 +19,7 @@ from .props_utils import recompute_props_names
 from .diff import (
     DiffReport, NodeDiff, FieldChange, diff_trees,
 )
+from .variant_registry import list_variants_for, default_variant_for
 
 __all__ = [
     "WidgetNode",
@@ -40,4 +41,6 @@ __all__ = [
     "NodeDiff",
     "FieldChange",
     "diff_trees",
+    "list_variants_for",
+    "default_variant_for",
 ]

@@ -11,8 +11,8 @@ from PySide6.QtWidgets import (
 from editor.model import (
     WidgetNode, WidgetTree,
     list_control_functions, list_all_function_names,
+    list_variants_for,
 )
-
 
 # 字段编辑顺序（先核心字段，再自由属性）
 CORE_FIELD_ORDER = [
@@ -233,6 +233,19 @@ class PropertyPanel(QWidget):
             editor.setReadOnly(True)
             editor.setStyleSheet("color: #666; background: #f0f0f0;")
             editor.setToolTip("由控件在树中的位置自动推导，请通过拖拽调整层级。")
+            return editor
+
+        # widget_variant → 根据 category 可编辑下拉
+        if field == "widget_variant":
+            editor = QComboBox()
+            editor.setEditable(True)
+            editor.addItem("")
+            for name in list_variants_for(node.widget_category):
+                editor.addItem(name)
+            editor.setCurrentText(str(value) if value else "")
+            editor.currentTextChanged.connect(
+                lambda text: self._on_field_changed(node, field, text or None)
+            )
             return editor
 
         # modified_callback → 可编辑下拉

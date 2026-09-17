@@ -21,6 +21,11 @@ def main():
     log.info("编辑器启动")
     app = QApplication(sys.argv)
     app.setApplicationName("OBS Script Framework Editor")
+
+    from editor.settings_manager import load_settings
+    from editor.ui.style_utils import apply_to_app
+    apply_to_app(app, load_settings())
+
     try:
         window = MainWindow()
         window.show()

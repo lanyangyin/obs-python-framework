@@ -6,8 +6,7 @@ from PySide6.QtWidgets import (
     QComboBox, QVBoxLayout, QMessageBox,
 )
 
-from editor.model import WidgetNode, WidgetTree
-
+from editor.model import WidgetNode, WidgetTree, list_variants_for, default_variant_for
 
 def _list_widget_categories() -> list:
     try:
@@ -45,9 +44,14 @@ class NewNodeDialog(QDialog):
         self._description = QLineEdit()
         form.addRow("description", self._description)
 
-        self._widget_variant = QLineEdit()
-        self._widget_variant.setPlaceholderText("可选，如 INT_SLIDER")
+        self._widget_variant = QComboBox()
+        self._widget_variant.setEditable(True)  # 允许手输未知值
         form.addRow("widget_variant", self._widget_variant)
+
+        # 连接 category 变化 → 重建 variant 选项
+        self._widget_category.currentTextChanged.connect(
+            self._on_category_changed
+        )
 
         self._group_props_name = QLineEdit()
         self._group_props_name.setPlaceholderText("仅当分类为 GROUP 时填写")
@@ -59,6 +63,8 @@ class NewNodeDialog(QDialog):
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        # 初始填充
+        self._on_category_changed(self._widget_category.currentText())
 
     def _on_accept(self):
         name = self._control_name.text().strip()
@@ -77,6 +83,32 @@ class NewNodeDialog(QDialog):
             QMessageBox.warning(self, "提示", f"group_props_name '{gpn}' 已被使用")
             return
         self.accept()
+
+    def _on_category_changed(self, category: str):
+        """根据 category 重建 widget_variant 下拉的选项。"""
+        old_text = self._widget_variant.currentText()
+
+        self._widget_variant.blockSignals(True)
+        self._widget_variant.clear()
+        self._widget_variant.addItem("")  # 空选项
+
+        for name in list_variants_for(category):
+            self._widget_variant.addItem(name)
+
+        # 恢复：如果旧值在新选项里就用旧值；否则清空
+        if old_text and old_text in [
+            self._widget_variant.itemText(i)
+            for i in range(self._widget_variant.count())
+        ]:
+            self._widget_variant.setCurrentText(old_text)
+        else:
+            default = default_variant_for(category)
+            if default:
+                self._widget_variant.setCurrentText(default)
+            else:
+                self._widget_variant.setCurrentText("")
+
+        self._widget_variant.blockSignals(False)
 
     def result_node(self) -> WidgetNode:
         control_name = self._control_name.text().strip()
