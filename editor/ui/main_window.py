@@ -13,21 +13,7 @@ from editor.model import (
     default_template_path, default_data_path,
 )
 from editor.ui.tree_panel import TreePanel
-
-
-class PropertyPanelPlaceholder(QWidget):
-    """Step 3 会替换为真正的属性面板。"""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        layout = QVBoxLayout(self)
-        label = QLabel("选中左侧控件后，属性将在这里显示。\n\n（Step 3 实现）")
-        label.setAlignment(Qt.AlignCenter)
-        label.setStyleSheet("color: #888; font-size: 14px;")
-        layout.addWidget(label)
-
-    def set_node(self, node):
-        pass
+from editor.ui.property_panel import PropertyPanel
 
 
 class MainWindow(QMainWindow):
@@ -86,7 +72,8 @@ class MainWindow(QMainWindow):
         self.tree_panel = TreePanel()
         self.tree_panel.node_selected.connect(self._on_node_selected)
 
-        self.property_panel = PropertyPanelPlaceholder()
+        self.property_panel = PropertyPanel()
+        self.property_panel.node_edited.connect(self._on_node_edited)
 
         splitter.addWidget(self.tree_panel)
         splitter.addWidget(self.property_panel)
@@ -113,6 +100,7 @@ class MainWindow(QMainWindow):
         try:
             self._tree = load_tree(self._current_template_path, self._current_data_path)
             self.tree_panel.load_tree(self._tree)
+            self.property_panel.set_tree(self._tree)
             self._modified = False
             self._refresh_status()
         except Exception as e:
@@ -182,6 +170,23 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(
                 f"选中: {node.control_name} ({node.widget_category})", 2000
             )
+
+    def _on_node_edited(self, node, field: str):
+        """属性面板编辑了某个字段。"""
+        self._modified = True
+        # 刷新树节点标签（object_name / description 变化时）
+        if field in ("object_name", "description", "props_name", "group_props_name"):
+            self._refresh_tree_label(node)
+        self._refresh_status()
+
+    def _refresh_tree_label(self, node):
+        """刷新树中某个节点的显示文本。"""
+        try:
+            self.tree_panel.refresh_node_label(node)
+        except AttributeError:
+            # tree_panel 尚未实现这个接口，退化为整体重载（简单但不保留展开状态）
+            # 后续 Step 4 再优化
+            pass
 
     # ------------------------------------------------------------------
     # 状态

@@ -94,3 +94,30 @@ class TreePanel(QWidget):
             self.node_selected.emit(None)
             return
         self.node_selected.emit(item.data(self.NODE_ROLE))
+
+    def refresh_node_label(self, node) -> None:
+        """刷新指定节点在树中的显示文本。"""
+        item = self._find_item_by_node(node)
+        if item is not None:
+            item.setText(self._format_label(node))
+            item.setToolTip(self._format_tooltip(node))
+
+    def _find_item_by_node(self, node):
+        """深度优先查找树中持有指定 WidgetNode 的 QStandardItem。"""
+        root = self._model.invisibleRootItem()
+        for i in range(root.rowCount()):
+            found = self._search_item(root.child(i), node)
+            if found is not None:
+                return found
+        return None
+
+    def _search_item(self, item, node):
+        if item is None:
+            return None
+        if item.data(self.NODE_ROLE) is node:
+            return item
+        for i in range(item.rowCount()):
+            found = self._search_item(item.child(i), node)
+            if found is not None:
+                return found
+        return None
