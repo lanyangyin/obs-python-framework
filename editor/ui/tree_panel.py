@@ -123,7 +123,7 @@ class TreePanel(QWidget):
             raise
 
     def _iter_items(self):
-        """深度优先遍历所有 item，产出 QStandardItem。"""
+        """深度优先遍历所有 item。"""
         root = self._model.invisibleRootItem()
         for i in range(root.rowCount()):
             yield from self._iter_subtree(root.child(i))

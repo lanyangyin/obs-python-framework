@@ -3,11 +3,12 @@ import sys
 from typing import Optional
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
 from PySide6.QtGui import QColor, QBrush
+from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QMainWindow, QSplitter, QToolBar, QStatusBar,
     QFileDialog, QMessageBox, QLabel, QWidget, QVBoxLayout,
+    QDialog,
 )
 
 from editor.model import (
@@ -17,6 +18,8 @@ from editor.model import (
 from editor.logging_config import get_logger, get_log_dir, log_exception
 from editor.ui.tree_panel import TreePanel
 from editor.ui.property_panel import PropertyPanel
+from editor.ui.commands import AddNodeCommand, RemoveNodeCommand, MoveNodeCommand
+from editor.ui.new_node_dialog import NewNodeDialog
 
 
 class MainWindow(QMainWindow):
@@ -32,6 +35,9 @@ class MainWindow(QMainWindow):
         self._current_template_path: str = default_template_path()
         self._current_data_path: str = default_data_path()
         self._modified: bool = False
+        self._selected_node = None
+        self._undo_stack = QUndoStack(self)
+        self._undo_stack.indexChanged.connect(self._on_undo_stack_changed)
 
         self._build_toolbar()
         self._build_central()
@@ -47,6 +53,7 @@ class MainWindow(QMainWindow):
         tb.setMovable(False)
         self.addToolBar(tb)
 
+        # --- 文件 ---
         act_open = QAction("打开...", self)
         act_open.triggered.connect(self.action_open)
         tb.addAction(act_open)
@@ -59,11 +66,46 @@ class MainWindow(QMainWindow):
         act_save_as.triggered.connect(self.action_save_as)
         tb.addAction(act_save_as)
 
-        tb.addSeparator()
-
         act_reload = QAction("重新加载", self)
         act_reload.triggered.connect(self.action_reload)
         tb.addAction(act_reload)
+
+        tb.addSeparator()
+
+        # --- 编辑 ---
+        self._act_undo = QAction("撤销", self)
+        self._act_undo.setShortcut(QKeySequence.Undo)
+        self._act_undo.triggered.connect(self.action_undo)
+        self._act_undo.setEnabled(False)
+        tb.addAction(self._act_undo)
+
+        self._act_redo = QAction("重做", self)
+        self._act_redo.setShortcut(QKeySequence.Redo)
+        self._act_redo.triggered.connect(self.action_redo)
+        self._act_redo.setEnabled(False)
+        tb.addAction(self._act_redo)
+
+        tb.addSeparator()
+
+        # --- 节点操作 ---
+        self._act_add = QAction("新建控件", self)
+        self._act_add.triggered.connect(self.action_add_node)
+        tb.addAction(self._act_add)
+
+        self._act_remove = QAction("删除选中", self)
+        self._act_remove.triggered.connect(self.action_remove_node)
+        self._act_remove.setEnabled(False)
+        tb.addAction(self._act_remove)
+
+        self._act_up = QAction("上移", self)
+        self._act_up.triggered.connect(self.action_move_up)
+        self._act_up.setEnabled(False)
+        tb.addAction(self._act_up)
+
+        self._act_down = QAction("下移", self)
+        self._act_down.triggered.connect(self.action_move_down)
+        self._act_down.setEnabled(False)
+        tb.addAction(self._act_down)
 
         tb.addSeparator()
 
@@ -121,6 +163,9 @@ class MainWindow(QMainWindow):
         except Exception as e:
             log_exception(self._log, "加载默认 CSV 失败", e)
             QMessageBox.critical(self, "加载失败", f"无法加载默认 CSV:\n{e}")
+        self._undo_stack.blockSignals(True)
+        self._undo_stack.clear()
+        self._undo_stack.blockSignals(False)
 
     def action_open_log_dir(self):
         import os
@@ -158,6 +203,9 @@ class MainWindow(QMainWindow):
         except Exception as e:
             log_exception(self._log, f"打开文件失败: {path}", e)
             QMessageBox.critical(self, "打开失败", str(e))
+        self._undo_stack.blockSignals(True)
+        self._undo_stack.clear()
+        self._undo_stack.blockSignals(False)
 
     def action_save(self):
         if self._tree is None:
@@ -197,12 +245,17 @@ class MainWindow(QMainWindow):
             self._refresh_status()
         except Exception as e:
             QMessageBox.critical(self, "重载失败", str(e))
+        self._undo_stack.blockSignals(True)
+        self._undo_stack.clear()
+        self._undo_stack.blockSignals(False)
 
     # ------------------------------------------------------------------
     # 信号
     # ------------------------------------------------------------------
     def _on_node_selected(self, node):
+        self._selected_node = node
         self.property_panel.set_node(node)
+        self._update_node_action_states()
         if node is not None:
             self.status_bar.showMessage(
                 f"选中: {node.control_name} ({node.widget_category})", 2000
@@ -223,6 +276,51 @@ class MainWindow(QMainWindow):
             # tree_panel 尚未实现这个接口，退化为整体重载（简单但不保留展开状态）
             # 后续 Step 4 再优化
             pass
+
+    def _update_node_action_states(self):
+        node = self._selected_node
+        self._act_remove.setEnabled(node is not None)
+        if node is None:
+            self._act_up.setEnabled(False)
+            self._act_down.setEnabled(False)
+            return
+
+        parent = node.parent
+        siblings = parent.children if parent is not None else self._tree.roots()
+        try:
+            idx = siblings.index(node)
+        except ValueError:
+            idx = -1
+        self._act_up.setEnabled(idx > 0)
+        self._act_down.setEnabled(0 <= idx < len(siblings) - 1)
+
+    def _update_undo_actions(self):
+        self._act_undo.setEnabled(self._undo_stack.canUndo())
+        self._act_redo.setEnabled(self._undo_stack.canRedo())
+
+    def _on_undo_stack_changed(self, index: int):
+        """
+        QUndoStack 索引变化：push / undo / redo 都会触发。
+        统一在这里刷新 UI。
+        """
+        self._update_undo_actions()
+        if self._tree is None:
+            return
+
+        # 记住当前选中的 control_name，尽可能在刷新后恢复
+        remember_name = None
+        if self._selected_node is not None:
+            remember_name = self._selected_node.control_name
+
+        self._modified = True
+        self.tree_panel.load_tree(self._tree)
+
+        if remember_name and self._tree.find(remember_name) is not None:
+            self.tree_panel.select_by_control_name(remember_name)
+
+        self._refresh_status()
+        self._update_node_action_states()
+        self._log.debug(f"undo stack index -> {index}, 已刷新 UI")
 
     # ------------------------------------------------------------------
     # 状态
@@ -292,3 +390,109 @@ class MainWindow(QMainWindow):
         layout.addWidget(buttons)
 
         dlg.exec()
+
+    # ------------------------------------------------------------------
+    # 节点操作
+    # ------------------------------------------------------------------
+    def action_add_node(self):
+        if self._tree is None:
+            return
+
+        # 决定插入位置：默认作为选中节点的同级插在它后面
+        node = self._selected_node
+        if node is None:
+            parent = None
+            index = len(self._tree.roots())
+        else:
+            parent = node.parent
+            siblings = parent.children if parent is not None else self._tree.roots()
+            try:
+                index = siblings.index(node) + 1
+            except ValueError:
+                index = len(siblings)
+
+        dlg = NewNodeDialog(self, self._tree)
+        if dlg.exec() != QDialog.Accepted:
+            return
+
+        new_node = dlg.result_node()
+        try:
+            cmd = AddNodeCommand(self._tree, new_node, parent, index)
+            self._undo_stack.push(cmd)
+        except ValueError as e:
+            QMessageBox.warning(self, "新建失败", str(e))
+            return
+
+        self._log.info(
+            f"新建控件: {new_node.control_name} ({new_node.widget_category})"
+        )
+
+    def action_remove_node(self):
+        node = self._selected_node
+        if node is None or self._tree is None:
+            return
+
+        subtree_size = sum(1 for _ in node.iter_subtree())
+        msg = f"确认删除控件 '{node.control_name}'？"
+        if subtree_size > 1:
+            msg += f"\n\n将同时删除其 {subtree_size - 1} 个子控件。"
+
+        if QMessageBox.question(self, "删除确认", msg) != QMessageBox.Yes:
+            return
+
+        try:
+            cmd = RemoveNodeCommand(self._tree, node)
+            self._undo_stack.push(cmd)
+        except Exception as e:
+            QMessageBox.warning(self, "删除失败", str(e))
+            return
+
+        self._log.info(f"删除控件: {node.control_name}")
+
+    def action_undo(self):
+        if not self._undo_stack.canUndo():
+            return
+        text = self._undo_stack.undoText()
+        self._undo_stack.undo()
+        self._log.info(f"撤销: {text}")
+
+    def action_redo(self):
+        if not self._undo_stack.canRedo():
+            return
+        text = self._undo_stack.redoText()
+        self._undo_stack.redo()
+        self._log.info(f"重做: {text}")
+
+    def action_move_up(self):
+        self._move_selected(-1)
+
+    def action_move_down(self):
+        self._move_selected(+1)
+
+    def _move_selected(self, delta: int):
+        node = self._selected_node
+        if node is None or self._tree is None:
+            return
+
+        parent = node.parent
+        siblings = parent.children if parent is not None else self._tree.roots()
+        try:
+            idx = siblings.index(node)
+        except ValueError:
+            return
+
+        new_idx = idx + delta
+        if new_idx < 0 or new_idx >= len(siblings):
+            return
+
+        try:
+            cmd = MoveNodeCommand(self._tree, node, parent, new_idx)
+            self._undo_stack.push(cmd)
+        except Exception as e:
+            QMessageBox.warning(self, "移动失败", str(e))
+            return
+
+        self._log.info(
+            f"移动控件: {node.control_name} -> {parent.control_name if parent else '(root)'} "
+            f"index={new_idx}"
+        )
