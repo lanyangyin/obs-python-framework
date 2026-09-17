@@ -57,6 +57,9 @@ class WidgetNode:
 
     modified_callback_enabled: bool = False
     modified_callback: Optional[str] = None
+    """CSV 中配置的回调函数名（原始字符串）"""
+    modified_callback_display: Optional[str] = None
+    """用于展示的回调名，通常等同于 modified_callback"""
 
     source_line: int = 0
     level: int = 0

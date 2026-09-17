@@ -8,7 +8,10 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QSpacerItem,
 )
 
-from editor.model import WidgetNode, WidgetTree
+from editor.model import (
+    WidgetNode, WidgetTree,
+    list_control_functions, list_all_function_names,
+)
 
 
 # 字段编辑顺序（先核心字段，再自由属性）
@@ -44,6 +47,21 @@ FIELD_LABELS = {
     "modified_callback": "变动回调函数名",
     "source_line": "源 CSV 行号",
     "level": "层级",
+}
+
+# 已知的"函数名"字段：这些字段编辑时提供下拉建议
+FUNCTION_FIELD_NAMES = {
+    "modified_callback",
+    "visible", "enabled",
+    "checked",
+    "min_val", "max_val", "step", "digital",
+    "info_type",
+    "text",
+    "label", "value", "items",
+    "color_alpha", "color_red", "color_green", "color_blue",
+    "font_face", "font_size", "font_style",
+    "font_bold", "font_italic", "font_underline", "font_strikeout",
+    "path_text",
 }
 
 
@@ -186,6 +204,19 @@ class PropertyPanel(QWidget):
             )
             return editor
 
+        # modified_callback → 可编辑下拉
+        if field == "modified_callback":
+            editor = QComboBox()
+            editor.setEditable(True)
+            editor.addItem("")  # 空选项
+            for name in list_control_functions():
+                editor.addItem(name)
+            editor.setCurrentText(str(value) if value else "")
+            editor.currentTextChanged.connect(
+                lambda text: self._on_field_changed(node, field, text or None)
+            )
+            return editor
+
         # 其他 → 单行文本
         editor = QLineEdit()
         editor.setText(str(value) if value is not None else "")
@@ -195,6 +226,17 @@ class PropertyPanel(QWidget):
         return editor
 
     def _make_property_editor(self, node: WidgetNode, prop_name: str, value: Any) -> QWidget:
+        if prop_name in FUNCTION_FIELD_NAMES:
+            editor = QComboBox()
+            editor.setEditable(True)
+            editor.addItem("")
+            for name in list_all_function_names():
+                editor.addItem(name)
+            editor.setCurrentText(str(value) if value is not None else "")
+            editor.currentTextChanged.connect(
+                lambda text, pn=prop_name: self._on_property_changed(node, pn, text)
+            )
+            return editor
         editor = QLineEdit()
         editor.setText(str(value) if value is not None else "")
         editor.textEdited.connect(

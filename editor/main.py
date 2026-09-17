@@ -10,16 +10,27 @@ if str(PROJECT_ROOT) not in sys.path:
 from editor._bootstrap import bootstrap
 bootstrap()
 
+from editor.logging_config import setup_logging
+log = setup_logging()
+
 from PySide6.QtWidgets import QApplication
 from editor.ui.main_window import MainWindow
 
 
 def main():
+    log.info("编辑器启动")
     app = QApplication(sys.argv)
     app.setApplicationName("OBS Script Framework Editor")
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+    try:
+        window = MainWindow()
+        window.show()
+        exit_code = app.exec()
+        log.info(f"编辑器退出，exit_code={exit_code}")
+        sys.exit(exit_code)
+    except Exception as e:
+        from editor.logging_config import log_exception
+        log_exception(log, "编辑器主循环异常", e)
+        raise
 
 
 if __name__ == "__main__":

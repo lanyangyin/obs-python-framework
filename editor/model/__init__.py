@@ -10,6 +10,11 @@ from .csv_io import (
     default_data_path,
     load_default_tree,
 )
+from .function_registry import (
+    list_control_functions,
+    list_button_functions,
+    list_all_function_names,
+)
 
 __all__ = [
     "WidgetNode",
@@ -23,4 +28,7 @@ __all__ = [
     "default_template_path",
     "default_data_path",
     "load_default_tree",
+    "list_control_functions",
+    "list_button_functions",
+    "list_all_function_names",
 ]
