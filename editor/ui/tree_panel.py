@@ -41,12 +41,21 @@ class _DragDropTreeView(QTreeView):
         target_node = (
             target_item.data(TreePanel.NODE_ROLE) if target_item else None
         )
+        pos_int = pos.value
 
-        self.drop_computed.emit(source_node, target_node, int(pos))
-
-        # 阻止内置行为（内置会直接改 QStandardItemModel，绕过 WidgetTree）
+        # 阻止 Qt 内置的 move 逻辑（它会直接改 QStandardItemModel，
+        # 绕过我们的 WidgetTree 和 QUndoStack）
         event.accept()
-        event.setDropAction(Qt.MoveAction)
+        event.setDropAction(Qt.IgnoreAction)
+
+        # 关键：把处理延后到事件循环下一轮。
+        # 因为在 dropEvent 里同步重建 model 会让 Qt 内部拖放状态错乱，
+        # 表现为"节点消失"（其实数据已经改了，只是视图没刷新正确）。
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(
+            0,
+            lambda: self.drop_computed.emit(source_node, target_node, pos_int),
+        )
 
 
 class TreePanel(QWidget):

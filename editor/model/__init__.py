@@ -15,6 +15,7 @@ from .function_registry import (
     list_button_functions,
     list_all_function_names,
 )
+from .props_utils import recompute_props_names
 
 __all__ = [
     "WidgetNode",
@@ -31,4 +32,5 @@ __all__ = [
     "list_control_functions",
     "list_button_functions",
     "list_all_function_names",
+    "recompute_props_names",
 ]

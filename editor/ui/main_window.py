@@ -18,7 +18,9 @@ from editor.model import (
 from editor.logging_config import get_logger, get_log_dir, log_exception
 from editor.ui.tree_panel import TreePanel
 from editor.ui.property_panel import PropertyPanel
-from editor.ui.commands import AddNodeCommand, RemoveNodeCommand, MoveNodeCommand
+from editor.ui.commands import (
+    AddNodeCommand, RemoveNodeCommand, MoveNodeCommand, EditFieldCommand,
+)
 from editor.ui.new_node_dialog import NewNodeDialog
 
 
@@ -125,7 +127,7 @@ class MainWindow(QMainWindow):
         self.tree_panel.node_move_requested.connect(self._on_node_move_requested)
 
         self.property_panel = PropertyPanel()
-        self.property_panel.node_edited.connect(self._on_node_edited)
+        self.property_panel.field_edit_committed.connect(self._on_field_edit_committed)
 
         splitter.addWidget(self.tree_panel)
         splitter.addWidget(self.property_panel)
@@ -262,11 +264,24 @@ class MainWindow(QMainWindow):
                 f"选中: {node.control_name} ({node.widget_category})", 2000
             )
 
-    def _on_node_edited(self, node, field: str):
-        self._modified = True
-        self._log.debug(f"编辑: {node.control_name}.{field}")
-        if field in ("object_name", "description", "props_name", "group_props_name"):
-            self._refresh_tree_label(node)
+    def _on_field_edit_committed(self, node, field, old_value, new_value):
+        """属性面板提交了一次字段编辑，记录到 undo stack。"""
+        cmd = EditFieldCommand(
+            node, field, old_value, new_value,
+            notify_callback=self._on_edit_command_applied,
+        )
+        self._undo_stack.push(cmd)
+
+    def _on_edit_command_applied(self, node, field):
+        """
+        EditFieldCommand 的 redo/undo/mergeWith 完成时调用。
+        做轻量刷新，不重建整棵树。
+        """
+        # 刷新树标签（object_name / description 之类会影响显示）
+        self.tree_panel.refresh_node_label(node)
+        # 如果属性面板当前显示的就是这个节点，同步刷新对应字段
+        if self.property_panel.current_node() is node:
+            self.property_panel.refresh_field(field)
         self._refresh_status()
 
     def _refresh_tree_label(self, node):
@@ -302,18 +317,24 @@ class MainWindow(QMainWindow):
     def _on_undo_stack_changed(self, index: int):
         """
         QUndoStack 索引变化：push / undo / redo 都会触发。
-        统一在这里刷新 UI。
+        - 编辑类命令（EditFieldCommand）：UI 已由 notify_callback 处理，不再全量刷新
+        - 结构类命令：全量重建树
         """
         self._update_undo_actions()
         if self._tree is None:
             return
 
-        # 记住当前选中的 control_name，尽可能在刷新后恢复
+        self._modified = True
+
+        if self._is_recent_edit_command(index):
+            # 编辑命令自己会刷新 UI，这里不再重建树
+            self._log.debug(f"undo stack index -> {index}（编辑类，跳过全量刷新）")
+            return
+
         remember_name = None
         if self._selected_node is not None:
             remember_name = self._selected_node.control_name
 
-        self._modified = True
         self.tree_panel.load_tree(self._tree)
 
         if remember_name and self._tree.find(remember_name) is not None:
@@ -321,7 +342,26 @@ class MainWindow(QMainWindow):
 
         self._refresh_status()
         self._update_node_action_states()
-        self._log.debug(f"undo stack index -> {index}, 已刷新 UI")
+        self._log.debug(f"undo stack index -> {index}，已重建树")
+
+    def _is_recent_edit_command(self, index: int) -> bool:
+        """
+        判断刚执行/撤销的命令是不是 EditFieldCommand。
+        - undo 之后：index 位置是新暴露出来的命令（就是刚被撤销的）
+        - push / redo 之后：index - 1 位置是刚执行的命令
+        """
+        count = self._undo_stack.count()
+        # 检查 index 位置（覆盖 undo 场景）
+        if 0 <= index < count:
+            cmd = self._undo_stack.command(index)
+            if isinstance(cmd, EditFieldCommand):
+                return True
+        # 检查 index - 1 位置（覆盖 push / redo 场景）
+        if 0 < index <= count:
+            cmd = self._undo_stack.command(index - 1)
+            if isinstance(cmd, EditFieldCommand):
+                return True
+        return False
 
     # ------------------------------------------------------------------
     # 状态
@@ -499,9 +539,9 @@ class MainWindow(QMainWindow):
         )
 
     def _on_node_move_requested(self, source_node, new_parent, new_index):
-        """拖放结束：把移动交给 MoveNodeCommand，走 undo stack。"""
         if self._tree is None:
             return
+        old_props = source_node.props_name
         try:
             cmd = MoveNodeCommand(self._tree, source_node, new_parent, new_index)
             self._undo_stack.push(cmd)
@@ -509,7 +549,8 @@ class MainWindow(QMainWindow):
             log_exception(self._log, "拖放移动失败", e)
             return
         self._log.info(
-            f"拖放移动: {source_node.control_name} -> "
-            f"{new_parent.control_name if new_parent else '(root)'} "
+            f"拖放移动: {source_node.control_name} "
+            f"props_name={old_props} -> {source_node.props_name}, "
+            f"new_parent={new_parent.control_name if new_parent else '(root)'}, "
             f"index={new_index}"
         )

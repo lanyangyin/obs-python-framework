@@ -31,7 +31,7 @@ CORE_FIELD_ORDER = [
 ]
 
 # 只读字段
-READONLY_FIELDS = {"widget_category", "source_line", "level"}
+READONLY_FIELDS = {"widget_category", "source_line", "level", "props_name"}
 
 # 字段显示名（中文友好）
 FIELD_LABELS = {
@@ -68,8 +68,8 @@ FUNCTION_FIELD_NAMES = {
 class PropertyPanel(QWidget):
     """属性编辑面板。"""
 
-    # 某个字段被编辑后发出，参数：(node, field_name)
-    node_edited = Signal(object, str)
+    # 某个字段被编辑后发出，参数：(node, field_name, old_value, new_value)
+    field_edit_committed = Signal(object, str, object, object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -123,6 +123,33 @@ class PropertyPanel(QWidget):
             self._show_hint()
         else:
             self._show_form(node)
+
+    def current_node(self) -> Optional[WidgetNode]:
+        """返回当前显示的节点。"""
+        return self._current_node
+
+    def refresh_field(self, field: str) -> None:
+        """
+        从 node 重新读取指定字段的值，写回编辑器（不触发信号）。
+        用于 undo / redo 后同步界面。
+        """
+        if self._current_node is None:
+            return
+        editor = self._editors.get(field)
+        if editor is None:
+            return
+        new_value = getattr(self._current_node, field, None)
+
+        editor.blockSignals(True)
+        try:
+            if isinstance(editor, QLineEdit):
+                editor.setText(str(new_value) if new_value is not None else "")
+            elif isinstance(editor, QCheckBox):
+                editor.setChecked(bool(new_value))
+            elif isinstance(editor, QComboBox):
+                editor.setCurrentText(str(new_value) if new_value is not None else "")
+        finally:
+            editor.blockSignals(False)
 
     # ------------------------------------------------------------------
     # 内部：显示/隐藏
@@ -191,17 +218,13 @@ class PropertyPanel(QWidget):
             )
             return editor
 
-        # props_name 用下拉
+        # props_name 只读：由控件在树中的位置自动推导
         if field == "props_name":
-            editor = QComboBox()
-            editor.setEditable(True)
-            if self._tree is not None:
-                for name in sorted(self._tree.group_props_names()):
-                    editor.addItem(name)
-            editor.setCurrentText(str(value) if value is not None else "")
-            editor.currentTextChanged.connect(
-                lambda text: self._on_field_changed(node, field, text)
-            )
+            editor = QLineEdit()
+            editor.setText(str(value) if value is not None else "")
+            editor.setReadOnly(True)
+            editor.setStyleSheet("color: #666; background: #f0f0f0;")
+            editor.setToolTip("由控件在树中的位置自动推导，请通过拖拽调整层级。")
             return editor
 
         # modified_callback → 可编辑下拉
@@ -255,8 +278,12 @@ class PropertyPanel(QWidget):
     # 字段变动
     # ------------------------------------------------------------------
     def _on_field_changed(self, node: WidgetNode, field: str, value: Any):
-        setattr(node, field, value)
-        self.node_edited.emit(node, field)
+        old_value = getattr(node, field, None)
+        if old_value == value:
+            return
+        # 只发信号，由主窗口决定是否 push 到 undo stack
+        # 值的真正写入由 EditFieldCommand.redo() 完成
+        self.field_edit_committed.emit(node, field, old_value, value)
 
     def _on_property_changed(self, node: WidgetNode, prop_name: str, value: str):
         # 空字符串 → 从 properties 里删除

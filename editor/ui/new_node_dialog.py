@@ -7,10 +7,8 @@ from PySide6.QtWidgets import (
 )
 
 from editor.model import WidgetNode, WidgetTree
-from editor.model.widget_node import WidgetNode as _WN  # noqa: F401
 
 
-# 从 obsScriptFramework_ 的枚举里抽取分类名
 def _list_widget_categories() -> list:
     try:
         from src.data.obsScriptControlData import WidgetCategory
@@ -21,12 +19,12 @@ def _list_widget_categories() -> list:
 
 
 class NewNodeDialog(QDialog):
-    """收集新建控件所需的基本字段。"""
+    """收集新建控件所需的基本字段。props_name 由位置自动推导，不在这里填。"""
 
     def __init__(self, parent, tree: WidgetTree):
         super().__init__(parent)
         self.setWindowTitle("新建控件")
-        self.resize(420, 260)
+        self.resize(420, 240)
         self._tree = tree
 
         layout = QVBoxLayout(self)
@@ -51,14 +49,8 @@ class NewNodeDialog(QDialog):
         self._widget_variant.setPlaceholderText("可选，如 INT_SLIDER")
         form.addRow("widget_variant", self._widget_variant)
 
-        self._props_name = QComboBox()
-        self._props_name.setEditable(True)
-        for name in sorted(tree.group_props_names()):
-            self._props_name.addItem(name)
-        form.addRow("props_name", self._props_name)
-
         self._group_props_name = QLineEdit()
-        self._group_props_name.setPlaceholderText("仅 GROUP 需要")
+        self._group_props_name.setPlaceholderText("仅当分类为 GROUP 时填写")
         form.addRow("group_props_name", self._group_props_name)
 
         layout.addLayout(form)
@@ -76,6 +68,14 @@ class NewNodeDialog(QDialog):
         if name in self._tree.all_control_names():
             QMessageBox.warning(self, "提示", f"control_name '{name}' 已存在")
             return
+        category = self._widget_category.currentText()
+        gpn = self._group_props_name.text().strip()
+        if category == "GROUP" and not gpn:
+            QMessageBox.warning(self, "提示", "分组框必须填写 group_props_name")
+            return
+        if gpn and gpn in self._tree.group_props_names():
+            QMessageBox.warning(self, "提示", f"group_props_name '{gpn}' 已被使用")
+            return
         self.accept()
 
     def result_node(self) -> WidgetNode:
@@ -84,14 +84,14 @@ class NewNodeDialog(QDialog):
         object_name = self._object_name.text().strip() or control_name
         description = self._description.text().strip()
         variant = self._widget_variant.text().strip() or None
-        props_name = self._props_name.currentText().strip() or "props"
         group_props_name = self._group_props_name.text().strip() or None
 
+        # props_name 先随便填，AddNodeCommand.redo() 会重算
         return WidgetNode(
             control_name=control_name,
             widget_category=category,
             object_name=object_name,
-            props_name=props_name,
+            props_name="props",
             description=description,
             widget_variant=variant,
             group_props_name=group_props_name,
