@@ -29,6 +29,7 @@ from editor.settings_manager import load_settings, save_settings, EditorSettings
 from editor.ui.style_utils import apply_to_app
 from editor.ui.settings_dialog import SettingsDialog
 from PySide6.QtWidgets import QApplication
+from editor.ui.export_dialog import ExportTemplateDialog
 from PySide6.QtWidgets import (
     QMainWindow, QSplitter, QToolBar, QStatusBar,
     QFileDialog, QMessageBox, QLabel, QWidget, QVBoxLayout,
@@ -160,6 +161,12 @@ class MainWindow(QMainWindow):
         act_settings.triggered.connect(self.action_open_settings)
         tb.addAction(act_settings)
 
+        tb.addSeparator()
+
+        act_export = QAction("导出脚本模板", self)
+        act_export.triggered.connect(self.action_export_template)
+        tb.addAction(act_export)
+
         act_log = QAction("打开日志目录", self)
         act_log.triggered.connect(self.action_open_log_dir)
         tb.addAction(act_log)
@@ -264,6 +271,15 @@ class MainWindow(QMainWindow):
         save_settings(self._editor_settings)
         apply_to_app(QApplication.instance(), self._editor_settings)
         self._log.info(f"编辑器设置已更新: theme={self._editor_settings.theme}")
+
+    def action_export_template(self):
+        if self._tree is None:
+            QMessageBox.warning(self, "提示", "还没有加载任何数据")
+            return
+        default_dir = str(Path(self._current_data_path).parent)
+        dlg = ExportTemplateDialog(self._tree, default_dir=default_dir, parent=self)
+        if dlg.exec() == QDialog.Accepted:
+            self._log.info("导出脚本模板完成")
 
     def action_open(self):
         path, _ = QFileDialog.getOpenFileName(
