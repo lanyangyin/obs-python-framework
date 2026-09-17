@@ -9,8 +9,59 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem, QSizePolicy,
 )
 
-from editor.model import WidgetTree, WidgetNode
+from editor.model import WidgetTree, WidgetNode, resolve_property, clear_control_cache
 
+# ----------------------------------------------------------------------
+# 类型转换辅助
+# ----------------------------------------------------------------------
+def _to_bool(value, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        s = value.strip().lower()
+        if s in ("true", "1", "yes", "y", "on"):
+            return True
+        if s in ("false", "0", "no", "n", "off"):
+            return False
+    return default
+
+
+def _to_int(value, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_number(value, default: float = 0.0):
+    try:
+        if isinstance(value, (int, float)):
+            return value
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _info_type_color(info_type) -> str:
+    """根据 info_type 值返回文字颜色。"""
+    # info_type 可能是 TextBoxInfoVariant 枚举、int、或字符串
+    val = info_type
+    if hasattr(val, "value"):
+        val = val.value
+    if hasattr(val, "name"):
+        name = val.name
+    else:
+        name = str(val).upper()
+
+    if "ERROR" in name:
+        return "#c44"
+    if "WARNING" in name:
+        return "#c80"
+    return "#3a7ebf"
 
 # ----------------------------------------------------------------------
 # 单个控件行
@@ -143,10 +194,23 @@ class PreviewPanel(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        self._hint = QLabel("模拟 OBS 控件预览（点击任意控件 → 选中对应节点）")
-        self._hint.setStyleSheet("color: #888; padding: 6px; font-size: 11px;")
-        self._hint.setAlignment(Qt.AlignCenter)
-        outer.addWidget(self._hint)
+        header = QWidget()
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(8, 4, 8, 4)
+        header_layout.setSpacing(6)
+
+        self._hint = QLabel("模拟 OBS 控件预览")
+        self._hint.setStyleSheet("color: #888; font-size: 11px;")
+        header_layout.addWidget(self._hint)
+        header_layout.addStretch()
+
+        btn_refresh = QPushButton("刷新数值")
+        btn_refresh.setFixedHeight(22)
+        btn_refresh.setStyleSheet("font-size: 11px; padding: 0 8px;")
+        btn_refresh.clicked.connect(self._on_refresh)
+        header_layout.addWidget(btn_refresh)
+
+        outer.addWidget(header)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -165,6 +229,7 @@ class PreviewPanel(QWidget):
     # 对外接口
     # ------------------------------------------------------------------
     def load_tree(self, tree: Optional[WidgetTree]) -> None:
+        clear_control_cache()
         self._tree = tree
         self._widgets.clear()
         self._highlighted = None
@@ -201,6 +266,11 @@ class PreviewPanel(QWidget):
         self._highlighted = name
         self._set_highlight(w, True)
         self._scroll.ensureWidgetVisible(w)
+
+    def _on_refresh(self):
+        """重新解析所有控件的真实数值。"""
+        if self._tree is not None:
+            self.load_tree(self._tree)
 
     # ------------------------------------------------------------------
     # 内部：清空 & 高亮
@@ -277,7 +347,8 @@ class PreviewPanel(QWidget):
 
         if cat == "CHECKBOX":
             cb = QCheckBox(label)
-            cb.setChecked(True)
+            checked = _to_bool(resolve_property(node, "checked", True))
+            cb.setChecked(checked)
             row.add_single(cb)
 
         elif cat == "DIGITALBOX":
@@ -286,12 +357,12 @@ class PreviewPanel(QWidget):
 
         elif cat == "TEXTBOX":
             row.add_label(label)
-            row.add_value(self._make_text_widget(variant))
+            row.add_value(self._make_text_widget(variant, node))
 
         elif cat == "BUTTON":
             btn = QPushButton(label)
             if variant == "URL":
-                url = node.properties.get("url", "")
+                url = resolve_property(node, "url", "")
                 btn.setToolTip(f"打开链接: {url}")
                 btn.setText(f"{label}  🔗")
             row.add_single(btn)
@@ -305,7 +376,8 @@ class PreviewPanel(QWidget):
 
         elif cat == "PATHBOX":
             row.add_label(label)
-            line = QLineEdit("C:\\")
+            path_text = str(resolve_property(node, "path_text", "C:\\") or "")
+            line = QLineEdit(path_text)
             line.setReadOnly(True)
             btn = QPushButton("...")
             btn.setFixedWidth(32)
@@ -316,15 +388,15 @@ class PreviewPanel(QWidget):
             color_btn = QPushButton()
             color_btn.setFixedSize(60, 22)
             color_btn.setStyleSheet(
-                "background-color: #EA80FF; border: 1px solid #888;"
-                " border-radius: 2px;"
+                f"background-color: {self._make_color_hex(node)};"
+                " border: 1px solid #888; border-radius: 2px;"
             )
             row.add_value(color_btn)
 
         elif cat == "FONTBOX":
             row.add_label(label)
             font_btn = QPushButton()
-            font_btn.setText("Kai 36 Regular")
+            font_btn.setText(self._make_font_text(node))
             font_btn.setStyleSheet("text-align: left; padding-left: 6px;")
             row.add_value(font_btn)
 
@@ -345,62 +417,120 @@ class PreviewPanel(QWidget):
     # 内部：控件填充
     # ------------------------------------------------------------------
     def _make_digital_widget(self, variant: Optional[str], node: WidgetNode) -> QWidget:
-        if variant in ("FLOAT", "FLOAT_SLIDER"):
+        min_val = _to_number(resolve_property(node, "min_val", 0), default=0)
+        max_val = _to_number(resolve_property(node, "max_val", 100), default=100)
+        step = _to_number(resolve_property(node, "step", 1), default=1)
+        value = _to_number(resolve_property(node, "digital", 50), default=50)
+
+        is_float = variant in ("FLOAT", "FLOAT_SLIDER")
+
+        if is_float:
             w = QDoubleSpinBox()
-            w.setRange(0.0, 100.0)
-            w.setValue(50.0)
+            w.setRange(float(min_val), float(max_val))
+            w.setSingleStep(float(step) if step else 1.0)
+            w.setDecimals(2)
+            w.setValue(float(value))
         else:
             w = QSpinBox()
-            w.setRange(0, 100)
-            w.setValue(50)
+            w.setRange(int(min_val), int(max_val))
+            w.setSingleStep(int(step) if step else 1)
+            w.setValue(int(value))
+
         suffix = node.properties.get("suffix", "")
-        if suffix:
+        if suffix and suffix != "X":
             w.setSuffix(str(suffix))
         return w
 
-    def _make_text_widget(self, variant: Optional[str]) -> QWidget:
+    def _make_text_widget(self, variant: Optional[str], node: WidgetNode) -> QWidget:
+        text = resolve_property(node, "text", "")
+        text = str(text) if text is not None else ""
+
         if variant == "INFO":
-            label = QLabel("这是一段只读文本")
+            info_type = resolve_property(node, "info_type", None)
+            label = QLabel(text or "（只读文本）")
+            label.setWordWrap(True)
+            color = _info_type_color(info_type)
             label.setStyleSheet(
-                "color: #888; padding: 4px; "
+                f"color: {color}; padding: 4px; "
                 "background: rgba(0,0,0,0.05); border-radius: 2px;"
             )
             return label
+
         if variant == "PASSWORD":
             w = QLineEdit()
             w.setEchoMode(QLineEdit.Password)
-            w.setText("password")
+            w.setText(text or "password")
             return w
+
         if variant == "MULTILINE":
             w = QPlainTextEdit()
-            w.setPlainText("多行文本内容")
+            w.setPlainText(text or "")
             w.setFixedHeight(60)
             return w
-        w = QLineEdit("文本内容")
+
+        w = QLineEdit(text)
         return w
 
     def _populate_combo(self, combo: QComboBox, node: WidgetNode) -> None:
-        items = node.properties.get("items", [])
+        items = resolve_property(node, "items", [])
         if not isinstance(items, list) or not items:
             combo.addItem("（无选项）")
             return
+
+        current_value = resolve_property(node, "value", None)
+        current_label = resolve_property(node, "label", None)
+
         for item in items:
             if isinstance(item, dict):
                 text = str(item.get("label", item.get("value", "")))
                 value = item.get("value")
                 combo.addItem(text, value)
+
         if combo.count() == 0:
             combo.addItem("（无选项）")
+            return
+
+        # 应用当前值
+        if current_value is not None:
+            idx = combo.findData(current_value)
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+        elif current_label is not None:
+            idx = combo.findText(str(current_label))
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
 
     def _populate_list(self, list_widget: QListWidget, node: WidgetNode) -> None:
-        items = node.properties.get("items", [])
+        items = resolve_property(node, "items", [])
         if not isinstance(items, list) or not items:
             list_widget.addItem(QListWidgetItem("（无项目）"))
             return
         for item in items:
             if isinstance(item, dict):
                 text = str(item.get("value", item.get("label", "")))
-                list_widget.addItem(QListWidgetItem(text))
+                it = QListWidgetItem(text)
+                if item.get("hidden"):
+                    it.setHidden(True)
+                if item.get("selected"):
+                    it.setSelected(True)
+                list_widget.addItem(it)
+
+    # ------------------------------------------------------------------
+    # 内部：特殊控件的展示
+    # ------------------------------------------------------------------
+    def _make_color_hex(self, node: WidgetNode) -> str:
+        r = _to_int(resolve_property(node, "color_red", 255), 255)
+        g = _to_int(resolve_property(node, "color_green", 255), 255)
+        b = _to_int(resolve_property(node, "color_blue", 255), 255)
+        return f"#{r:02X}{g:02X}{b:02X}"
+
+    def _make_font_text(self, node: WidgetNode) -> str:
+        face = resolve_property(node, "font_face", "Kai")
+        size = _to_int(resolve_property(node, "font_size", 12), 12)
+        style = resolve_property(node, "font_style", "Regular")
+        face = str(face) if face else "Kai"
+        style = str(style) if style else "Regular"
+        return f"{face}  {size}  {style}"
 
     # ------------------------------------------------------------------
     # 内部：点击转发

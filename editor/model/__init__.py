@@ -2,6 +2,7 @@
 from .widget_node import WidgetNode
 from .widget_tree import WidgetTree
 from .validator import ValidationError, validate, has_errors
+from .value_resolver import resolve, resolve_property, clear_control_cache
 from .csv_io import (
     load_tree,
     save_tree,
@@ -47,4 +48,7 @@ __all__ = [
     "generate_all",
     "summarize",
     "collect_function_names",
+    "resolve",
+    "resolve_property",
+    "clear_control_cache",
 ]
