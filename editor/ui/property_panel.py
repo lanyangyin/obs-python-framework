@@ -131,6 +131,7 @@ class PropertyPanel(QWidget):
     def refresh_field(self, field: str) -> None:
         """
         从 node 重新读取指定字段的值，写回编辑器（不触发信号）。
+        支持 "prop::xxx" 形式（自由属性）与普通字段名。
         用于 undo / redo 后同步界面。
         """
         if self._current_node is None:
@@ -138,16 +139,23 @@ class PropertyPanel(QWidget):
         editor = self._editors.get(field)
         if editor is None:
             return
-        new_value = getattr(self._current_node, field, None)
+
+        if field.startswith("prop::"):
+            prop_name = field[len("prop::"):]
+            new_value = self._current_node.properties.get(prop_name)
+        else:
+            new_value = getattr(self._current_node, field, None)
+
+        text = str(new_value) if new_value is not None else ""
 
         editor.blockSignals(True)
         try:
             if isinstance(editor, QLineEdit):
-                editor.setText(str(new_value) if new_value is not None else "")
+                editor.setText(text)
             elif isinstance(editor, QCheckBox):
                 editor.setChecked(bool(new_value))
             elif isinstance(editor, QComboBox):
-                editor.setCurrentText(str(new_value) if new_value is not None else "")
+                editor.setCurrentText(text)
         finally:
             editor.blockSignals(False)
 
@@ -286,9 +294,11 @@ class PropertyPanel(QWidget):
         self.field_edit_committed.emit(node, field, old_value, value)
 
     def _on_property_changed(self, node: WidgetNode, prop_name: str, value: str):
-        # 空字符串 → 从 properties 里删除
-        if value == "":
-            node.properties.pop(prop_name, None)
-        else:
-            node.properties[prop_name] = value
-        self.node_edited.emit(node, f"prop::{prop_name}")
+        old_value = node.properties.get(prop_name)
+        new_value = value if value != "" else None
+        if old_value == new_value:
+            return
+        # 用 "prop::" 前缀区分结构化字段与自由属性
+        self.field_edit_committed.emit(
+            node, f"prop::{prop_name}", old_value, new_value
+        )

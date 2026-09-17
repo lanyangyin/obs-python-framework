@@ -113,45 +113,65 @@ class MoveNodeCommand(QUndoCommand):
 
 class EditFieldCommand(QUndoCommand):
     """
-    编辑控件单个字段。
-    同一个 (node, field) 上的连续编辑会通过 mergeWith 合并为一条。
+    编辑控件属性。支持两种模式：
+    - 结构化字段：property_name=None，走 getattr/setattr
+    - 自由属性：property_name=xxx，走 node.properties 字典
 
-    重要：mergeWith 返回 True 时，Qt 会丢弃新命令，也不会调用新命令的 redo()。
-    因此合并时必须手动 setattr + 通知回调，否则属性值会停留在旧值。
+    mergeWith 时 Qt 会丢弃新命令、不调用新命令的 redo，
+    所以合并时必须手动 apply + notify。
     """
 
-    def __init__(self, node, field, old_value, new_value, notify_callback):
-        super().__init__(f"编辑 {node.control_name}.{field}")
+    def __init__(self, node, field: str, old_value, new_value,
+                 notify_callback, property_name: Optional[str] = None):
+        if property_name:
+            display = f"{node.control_name}.{property_name}"
+        else:
+            display = f"{node.control_name}.{field}"
+        super().__init__(f"编辑 {display}")
         self._node = node
         self._field = field
+        self._property_name = property_name
         self._old_value = old_value
         self._new_value = new_value
         self._notify = notify_callback
 
     def id(self):
-        # 相同 (node, field) 的命令可以合并
-        # 注意：必须返回 32 位以内 int，Qt 侧 id() 是 C++ int
-        return _get_edit_field_id(self._node, self._field)
+        # 相同 (node, field, property) 的命令可以合并
+        # 必须返回 32 位以内 int，Qt 侧 id() 是 C++ int
+        return _get_edit_field_id(self._node, self._field, self._property_name)
 
     def mergeWith(self, other):
         if not isinstance(other, EditFieldCommand):
             return False
-        if other._node is not self._node or other._field != self._field:
+        if other._node is not self._node:
+            return False
+        if other._field != self._field:
+            return False
+        if other._property_name != self._property_name:
             return False
         # 保留自己的 old_value，只更新 new_value
         self._new_value = other._new_value
-        # Qt 不会调用 other.redo()，所以这里必须手动应用
-        setattr(self._node, self._field, self._new_value)
+        # Qt 不会调用 other.redo()，这里必须手动应用
+        self._apply(self._new_value)
         if self._notify:
             self._notify(self._node, self._field)
         return True
 
     def redo(self):
-        setattr(self._node, self._field, self._new_value)
+        self._apply(self._new_value)
         if self._notify:
             self._notify(self._node, self._field)
 
     def undo(self):
-        setattr(self._node, self._field, self._old_value)
+        self._apply(self._old_value)
         if self._notify:
             self._notify(self._node, self._field)
+
+    def _apply(self, value):
+        if self._property_name is not None:
+            if value is None or value == "":
+                self._node.properties.pop(self._property_name, None)
+            else:
+                self._node.properties[self._property_name] = value
+        else:
+            setattr(self._node, self._field, value)

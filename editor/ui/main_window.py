@@ -266,10 +266,18 @@ class MainWindow(QMainWindow):
 
     def _on_field_edit_committed(self, node, field, old_value, new_value):
         """属性面板提交了一次字段编辑，记录到 undo stack。"""
-        cmd = EditFieldCommand(
-            node, field, old_value, new_value,
-            notify_callback=self._on_edit_command_applied,
-        )
+        if field.startswith("prop::"):
+            prop_name = field[len("prop::"):]
+            cmd = EditFieldCommand(
+                node, field, old_value, new_value,
+                notify_callback=self._on_edit_command_applied,
+                property_name=prop_name,
+            )
+        else:
+            cmd = EditFieldCommand(
+                node, field, old_value, new_value,
+                notify_callback=self._on_edit_command_applied,
+            )
         self._undo_stack.push(cmd)
 
     def _on_edit_command_applied(self, node, field):
