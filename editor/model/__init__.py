@@ -16,6 +16,9 @@ from .function_registry import (
     list_all_function_names,
 )
 from .props_utils import recompute_props_names
+from .diff import (
+    DiffReport, NodeDiff, FieldChange, diff_trees,
+)
 
 __all__ = [
     "WidgetNode",
@@ -33,4 +36,8 @@ __all__ = [
     "list_button_functions",
     "list_all_function_names",
     "recompute_props_names",
+    "DiffReport",
+    "NodeDiff",
+    "FieldChange",
+    "diff_trees",
 ]

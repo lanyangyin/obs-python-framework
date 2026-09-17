@@ -20,5 +20,5 @@ test3_digitalBox,DIGITALBOX,,→→test3,测试数字框,测试数字框（test�
 test1_textBox,TEXTBOX,,→→test1,测试文本框,测试文本框（test）,INFO,true,test,,,,,,,,default_true,default_true,,,,,,,,info_type_reference_data,text_reference_data,,,,,,,,,,,,,,,,,,,,,,,,,,,
 test2_textBox,TEXTBOX,,→→test2,测试文本框,测试文本框（test）,INFO,true,test,,,,,,,,default_true,default_true,,,,,,,,info_type_reference_data0,text_reference_data,,,,,,,,,,,,,,,,,,,,,,,,,,,
 test3_textBox,TEXTBOX,,→→test3,测试文本框,测试文本框（test）,INFO,true,test,,,,,,,,default_true,default_true,,,,,,,,info_type_reference_data1,text_reference_data,,,,,,,,,,,,,,,,,,,,,,,,,,,
-test3_button,BUTTON,,test2,测试按钮,测试按钮（test）,URL,false,test,,,test,,,,,default_true,default_true,,url_reference_data,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 test2_group,GROUP,,test2,测试分组框,测试分组框（test）,NORMAL,true,test,,,,,,group2_props,,default_true,default_true,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+test3_button,BUTTON,,→test2,测试按钮,测试按钮（test）,URL,false,test,,,test,,,,,default_true,default_true,,url_reference_data,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

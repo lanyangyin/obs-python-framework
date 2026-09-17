@@ -15,6 +15,8 @@ from editor.model import (
     WidgetTree, load_tree, save_tree, validate,
     default_template_path, default_data_path,
 )
+from editor.model import load_tree, save_tree, validate, diff_trees
+from editor.ui.diff_dialog import DiffDialog
 from editor.logging_config import get_logger, get_log_dir, log_exception
 from editor.ui.tree_panel import TreePanel
 from editor.ui.property_panel import PropertyPanel
@@ -210,16 +212,51 @@ class MainWindow(QMainWindow):
         self._undo_stack.clear()
         self._undo_stack.blockSignals(False)
 
+    def _load_disk_tree(self):
+        """
+        加载磁盘上的当前数据文件，用于差异对比。
+        文件不存在时返回 None。
+        """
+        from pathlib import Path
+        if not Path(self._current_data_path).exists():
+            return None
+        try:
+            return load_tree(self._current_template_path, self._current_data_path)
+        except Exception as e:
+            self._log.warning(f"加载磁盘 CSV 失败（跳过差异对比）：{e}")
+            return None
+
+    def _do_save(self, path: str):
+        """实际写入文件。"""
+        try:
+            save_tree(self._tree, self._current_template_path, path)
+            self._current_data_path = path
+            self._modified = False
+            self._refresh_status()
+            self.status_bar.showMessage(f"已保存到 {path}", 3000)
+            self._log.info(f"保存成功: {path}")
+        except Exception as e:
+            log_exception(self._log, "保存失败", e)
+            QMessageBox.critical(self, "保存失败", str(e))
+
     def action_save(self):
         if self._tree is None:
             return
-        try:
-            save_tree(self._tree, self._current_template_path, self._current_data_path)
-            self._modified = False
-            self._refresh_status()
-            self.status_bar.showMessage(f"已保存到 {self._current_data_path}", 3000)
-        except Exception as e:
-            QMessageBox.critical(self, "保存失败", str(e))
+
+        disk_tree = self._load_disk_tree()
+        report = diff_trees(disk_tree, self._tree)
+
+        if report.is_empty:
+            # 无变化，直接保存（等同于刷新文件）
+            self._do_save(self._current_data_path)
+            return
+
+        dlg = DiffDialog(report, self)
+        if dlg.exec() != QDialog.Accepted:
+            self._log.info("保存取消（用户未确认差异）")
+            return
+
+        self._do_save(self._current_data_path)
 
     def action_save_as(self):
         if self._tree is None:
@@ -230,13 +267,24 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
-        try:
-            save_tree(self._tree, self._current_template_path, path)
-            self._current_data_path = path
-            self._modified = False
-            self._refresh_status()
-        except Exception as e:
-            QMessageBox.critical(self, "保存失败", str(e))
+
+        # 另存为：以目标路径的磁盘文件为基准（若存在）
+        from pathlib import Path
+        disk_tree = None
+        if Path(path).exists():
+            try:
+                disk_tree = load_tree(self._current_template_path, path)
+            except Exception as e:
+                self._log.warning(f"加载目标路径 CSV 失败（跳过差异对比）：{e}")
+
+        report = diff_trees(disk_tree, self._tree)
+        if not report.is_empty:
+            dlg = DiffDialog(report, self)
+            if dlg.exec() != QDialog.Accepted:
+                self._log.info("另存为取消（用户未确认差异）")
+                return
+
+        self._do_save(path)
 
     def action_reload(self):
         if self._tree is None:
