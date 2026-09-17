@@ -13,18 +13,28 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from .._bootstrap import get_project_root
+
 _log = logging.getLogger("editor")
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_PLUGINS_DIR = _PROJECT_ROOT / "obsScriptFramework_" / "plugins"
 
-CONTROL_FILE = _PLUGINS_DIR / "ControlFunction.py"
-BUTTON_FILE = _PLUGINS_DIR / "ButtonFunction.py"
+def _plugins_dir() -> Path:
+    return get_project_root() / "obsScriptFramework_" / "plugins"
 
-MODULE_MAP = {
-    "ControlDataSetFunction": (CONTROL_FILE, "plugins.ControlFunction"),
-    "BtnFunction": (BUTTON_FILE, "plugins.ButtonFunction"),
-}
+
+def _module_map() -> dict:
+    """每次调用都重新计算，保证 exe 运行时路径正确。"""
+    plugins_dir = _plugins_dir()
+    return {
+        "ControlDataSetFunction": (
+            plugins_dir / "ControlFunction.py",
+            "plugins.ControlFunction",
+        ),
+        "BtnFunction": (
+            plugins_dir / "ButtonFunction.py",
+            "plugins.ButtonFunction",
+        ),
+    }
 
 
 @dataclass
@@ -64,10 +74,11 @@ def _find_function(class_node, func_name: str):
 def locate_function(function_name: str,
                     owner_class: str = "ControlDataSetFunction") -> FunctionLocation:
     """在指定类里定位方法。失败时抛 FileNotFoundError / ValueError。"""
-    if owner_class not in MODULE_MAP:
+    module_map = _module_map()
+    if owner_class not in module_map:
         raise ValueError(f"未知的类：{owner_class}")
 
-    source_path, module_name = MODULE_MAP[owner_class]
+    source_path, module_name = module_map[owner_class]
     source, tree = _parse_file(source_path)
 
     class_node = _find_class(tree, owner_class)
@@ -168,9 +179,10 @@ def guess_owner_class(field_key: str, function_name: str) -> str:
 
 def get_module_name(class_name: str) -> str:
     """根据类名返回模块名。"""
-    if class_name not in MODULE_MAP:
+    module_map = _module_map()
+    if class_name not in module_map:
         raise ValueError(f"未知的类：{class_name}")
-    return MODULE_MAP[class_name][1]
+    return module_map[class_name][1]
 
 
 def function_exists(func_name: str, owner_class: str = "ControlDataSetFunction") -> bool:
@@ -191,10 +203,11 @@ def append_function(owner_class: str, func_name: str) -> FunctionLocation:
     if not func_name.isidentifier():
         raise ValueError(f"函数名不合法：{func_name}")
 
-    if owner_class not in MODULE_MAP:
+    module_map = _module_map()
+    if owner_class not in module_map:
         raise ValueError(f"未知的类：{owner_class}")
 
-    source_path, _ = MODULE_MAP[owner_class]
+    source_path, _ = module_map[owner_class]
     source, tree = _parse_file(source_path)
 
     class_node = _find_class(tree, owner_class)
@@ -249,13 +262,14 @@ def delete_function(owner_class: str,
     从类中删除一个方法（含装饰器行）。
     返回被删除方法的位置信息（用于日志）。
     """
-    if owner_class not in MODULE_MAP:
+    module_map = _module_map()
+    if owner_class not in module_map:
         raise ValueError(f"未知的类：{owner_class}")
 
     # 定位并取源码结构
     loc = locate_function(func_name, owner_class=owner_class)
 
-    source_path, _ = MODULE_MAP[owner_class]
+    source_path, _ = module_map[owner_class]
     source, tree = _parse_file(source_path)
     class_node = _find_class(tree, owner_class)
     func_node = _find_function(class_node, func_name)

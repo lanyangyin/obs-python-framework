@@ -56,9 +56,16 @@ class MainWindow(QMainWindow):
         self._current_template_path: str = default_template_path()
         self._current_data_path: str = default_data_path()
         self._session = SessionManager()
-        last_data = self._session.last_data_path()
-        if last_data:
-            self._current_data_path = last_data
+
+        # 只在源码模式恢复会话中的 last_data_path。
+        # exe 模式：忽略会话值，强制使用 exe 同目录的 obsScriptFramework_。
+        # 原因：用户在源码模式用过编辑器后，QSettings 里存的是源码目录的路径；
+        # 切到 exe 后如果沿用，会加载错误的 CSV 和编辑错误的函数文件。
+        from editor._bootstrap import is_frozen
+        if not is_frozen():
+            last_data = self._session.last_data_path()
+            if last_data:
+                self._current_data_path = last_data
         self._modified: bool = False
         self._selected_node = None
         self._undo_stack = QUndoStack(self)
