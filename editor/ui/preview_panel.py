@@ -1,8 +1,7 @@
 """模拟 OBS 脚本控件面板的预览。"""
 from typing import Dict, Optional
 
-from PySide6.QtCore import Qt, Signal, QEvent
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFrame,
     QLabel, QCheckBox, QLineEdit, QSpinBox, QDoubleSpinBox,
@@ -14,89 +13,116 @@ from editor.model import WidgetTree, WidgetNode
 
 
 # ----------------------------------------------------------------------
-# 内部基类：处理"点击发出节点"逻辑
-# ----------------------------------------------------------------------
-class _ClickableBase:
-    """
-    给 QWidget 子类注入"点击发出 node_clicked"能力的辅助方法。
-    不是真正的 mixin，而是通过 installEventFilter 到所有子控件。
-    """
-
-    def _install_click_forwarding(self, node, signal_emitter):
-        self._node = node
-        self._signal_emitter = signal_emitter
-        self.installEventFilter(self)
-        for child in self.findChildren(QWidget):
-            child.installEventFilter(self)
-
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.MouseButtonPress:
-            try:
-                self._signal_emitter.emit(self._node)
-            except Exception:
-                pass
-        return super().eventFilter(obj, event)
-
-
-# ----------------------------------------------------------------------
 # 单个控件行
 # ----------------------------------------------------------------------
-class _PreviewRow(_ClickableBase, QFrame):
-    """一行预览：label + value widget（或仅一个控件）。"""
+class _PreviewRow(QFrame):
+    """
+    一行预览：label + value widget（或仅一个控件）。
+
+    点击处理：覆写 mousePressEvent；所有子控件设
+    `WA_TransparentForMouseEvents`，让事件直接落到 Row 上。
+    """
 
     clicked = Signal(object)  # WidgetNode
 
     def __init__(self, node: WidgetNode, parent=None):
         super().__init__(parent)
+        self._node = node
         self.setFrameShape(QFrame.NoFrame)
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(4, 2, 4, 2)
         self._layout.setSpacing(6)
 
-        self._install_click_forwarding(node, self.clicked)
+    # ---- 点击 ----
+    def mousePressEvent(self, event):
+        self.clicked.emit(self._node)
+        event.accept()
 
     # ---- 布局辅助 ----
     def add_single(self, widget: QWidget):
         """整行只有一个控件（如 CheckBox / Button）。"""
         self._layout.addWidget(widget)
         self._layout.addStretch()
-        widget.installEventFilter(self)
+        self._make_transparent(widget)
 
     def add_label(self, text: str, width: int = 140):
         label = QLabel(text)
         label.setFixedWidth(width)
         label.setStyleSheet("color: #888;")
         self._layout.addWidget(label)
+        self._make_transparent(label)
 
     def add_value(self, widget: QWidget):
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._layout.addWidget(widget, 1)
-        widget.installEventFilter(self)
+        self._make_transparent(widget)
 
     def add_value_pair(self, w1: QWidget, w2: QWidget):
         """路径框：输入框 + 浏览按钮。"""
         w1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._layout.addWidget(w1, 1)
         self._layout.addWidget(w2)
-        w1.installEventFilter(self)
-        w2.installEventFilter(self)
+        self._make_transparent(w1)
+        self._make_transparent(w2)
+
+    @staticmethod
+    def _make_transparent(widget: QWidget):
+        """让 widget 及其所有后代的鼠标事件穿透到 Row。"""
+        widget.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        for child in widget.findChildren(QWidget):
+            child.setAttribute(Qt.WA_TransparentForMouseEvents, True)
 
 
-class _PreviewGroup(_ClickableBase, QGroupBox):
-    """分组框预览。"""
+# ----------------------------------------------------------------------
+# 分组框
+# ----------------------------------------------------------------------
+class _PreviewGroup(QGroupBox):
+    """
+    分组框预览。CHECKABLE 变体支持折叠/展开。
+
+    点击处理：
+    - 标题区（顶部约 22px）→ 选中节点 + 切换勾选
+    - 内容区空白 → 只选中节点
+    - 子控件（Row）会自己接收点击，不会冒泡到 Group
+    """
 
     clicked = Signal(object)
+    TITLE_HEIGHT = 22
 
     def __init__(self, node: WidgetNode, parent=None):
         super().__init__(parent)
+        self._node = node
+        self._is_checkable = (node.widget_variant == "CHECKABLE")
+
         title = node.description or node.object_name or node.control_name
-        if node.widget_variant == "CHECKABLE":
+        self.setTitle(title)
+        self.setStyleSheet("QGroupBox { margin-top: 10px; }")
+
+        if self._is_checkable:
             self.setCheckable(True)
             self.setChecked(True)
-        self.setTitle(title)
-        self.setStyleSheet("QGroupBox { margin-top: 8px; }")
+            self.toggled.connect(self._on_toggled)
 
-        self._install_click_forwarding(node, self.clicked)
+    # ---- 点击 ----
+    def mousePressEvent(self, event):
+        if self._is_checkable and event.pos().y() < self.TITLE_HEIGHT:
+            # 标题区：切换勾选 + 选中节点
+            self.setChecked(not self.isChecked())
+            self.clicked.emit(self._node)
+        else:
+            # 内容区空白：只选中节点
+            self.clicked.emit(self._node)
+        event.accept()
+
+    def _on_toggled(self, checked: bool):
+        layout = self.layout()
+        if layout is None:
+            return
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            w = item.widget()
+            if w is not None:
+                w.setVisible(checked)
 
 
 # ----------------------------------------------------------------------
@@ -117,15 +143,11 @@ class PreviewPanel(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # 顶部提示
         self._hint = QLabel("模拟 OBS 控件预览（点击任意控件 → 选中对应节点）")
-        self._hint.setStyleSheet(
-            "color: #888; padding: 6px; font-size: 11px;"
-        )
+        self._hint.setStyleSheet("color: #888; padding: 6px; font-size: 11px;")
         self._hint.setAlignment(Qt.AlignCenter)
         outer.addWidget(self._hint)
 
-        # 滚动区
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.NoFrame)
@@ -143,7 +165,6 @@ class PreviewPanel(QWidget):
     # 对外接口
     # ------------------------------------------------------------------
     def load_tree(self, tree: Optional[WidgetTree]) -> None:
-        """重建整个预览。"""
         self._tree = tree
         self._widgets.clear()
         self._highlighted = None
@@ -160,16 +181,17 @@ class PreviewPanel(QWidget):
         for node in tree.roots():
             w = self._build_node(node)
             if w is not None:
-                # 插到 stretch 之前
                 self._host_layout.insertWidget(
                     self._host_layout.count() - 1, w
                 )
 
     def select_by_control_name(self, name: str) -> None:
-        """高亮并滚动到指定控件。"""
-        # 移除旧高亮
         if self._highlighted and self._highlighted in self._widgets:
             self._set_highlight(self._widgets[self._highlighted], False)
+
+        if not name:
+            self._highlighted = None
+            return
 
         w = self._widgets.get(name)
         if w is None:
@@ -184,7 +206,7 @@ class PreviewPanel(QWidget):
     # 内部：清空 & 高亮
     # ------------------------------------------------------------------
     def _clear(self) -> None:
-        while self._host_layout.count() > 1:  # 保留末尾 stretch
+        while self._host_layout.count() > 1:
             item = self._host_layout.takeAt(0)
             w = item.widget()
             if w is not None:
@@ -192,14 +214,32 @@ class PreviewPanel(QWidget):
 
     def _set_highlight(self, w: QWidget, on: bool) -> None:
         if on:
-            w.setStyleSheet(
-                "border: 1px solid #3a7ebf; border-radius: 3px;"
-                " background-color: rgba(58, 126, 191, 0.08);"
-            )
-        else:
-            # 恢复默认样式
             if isinstance(w, QGroupBox):
-                w.setStyleSheet("QGroupBox { margin-top: 8px; }")
+                w.setStyleSheet(
+                    "QGroupBox {"
+                    "  border: 2px solid #3a7ebf;"
+                    "  background-color: rgba(58, 126, 191, 0.12);"
+                    "  border-radius: 4px;"
+                    "  margin-top: 12px;"
+                    "  padding-top: 8px;"
+                    "}"
+                    "QGroupBox::title {"
+                    "  color: #3a7ebf;"
+                    "  font-weight: 600;"
+                    "  subcontrol-origin: margin;"
+                    "  subcontrol-position: top left;"
+                    "  left: 10px;"
+                    "}"
+                )
+            else:
+                w.setStyleSheet(
+                    "border: 2px solid #3a7ebf;"
+                    " background-color: rgba(58, 126, 191, 0.15);"
+                    " border-radius: 3px;"
+                )
+        else:
+            if isinstance(w, QGroupBox):
+                w.setStyleSheet("QGroupBox { margin-top: 10px; }")
             else:
                 w.setStyleSheet("")
 

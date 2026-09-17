@@ -491,15 +491,13 @@ class MainWindow(QMainWindow):
         """预览面板点击了某个控件。"""
         if node is None or self._tree is None:
             return
-        if self._syncing_selection:
-            return
 
-        self._syncing_selection = True
-        try:
-            # 通过树选中，树会触发 node_selected，进而刷新属性面板
-            self.tree_panel.select_by_control_name(node.control_name)
-        finally:
-            self._syncing_selection = False
+        self._log.debug(
+            f"预览点击: {node.control_name} ({node.widget_category})"
+        )
+
+        # 直接通过树选中；树会触发 node_selected → 高亮预览 + 刷新属性面板
+        self.tree_panel.select_by_control_name(node.control_name)
 
     def _on_field_edit_committed(self, node, field, old_value, new_value):
         """属性面板提交了一次字段编辑，记录到 undo stack。"""
