@@ -2,7 +2,14 @@
 from .widget_node import WidgetNode
 from .widget_tree import WidgetTree
 from .validator import ValidationError, validate, has_errors
-from .csv_io import load_tree, save_tree, read_header
+from .csv_io import (
+    load_tree,
+    save_tree,
+    read_header,
+    default_template_path,
+    default_data_path,
+    load_default_tree,
+)
 
 __all__ = [
     "WidgetNode",
@@ -13,4 +20,7 @@ __all__ = [
     "load_tree",
     "save_tree",
     "read_header",
+    "default_template_path",
+    "default_data_path",
+    "load_default_tree",
 ]

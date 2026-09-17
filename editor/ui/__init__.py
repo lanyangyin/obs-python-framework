@@ -1,0 +1,1 @@
+"""editor UI 层。依赖 PySide6，只通过 editor.model 访问数据。"""

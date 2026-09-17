@@ -14,21 +14,40 @@ from src.tool.scriptCsv2Json import ControlTemplateParser
 from .widget_node import WidgetNode
 from .widget_tree import WidgetTree
 
+from pathlib import Path
+
+# 项目根目录（editor/model/csv_io.py -> editor/model -> editor -> 项目根）
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def default_template_path() -> str:
+    """返回 obsScriptFramework_ 内置的控件属性定义文件路径。"""
+    return str(
+        _PROJECT_ROOT / "obsScriptFramework_" / "src" / "data"
+        / "widgetAttributeDefinitionData.csv"
+    )
+
+
+def default_data_path() -> str:
+    """返回 obsScriptFramework_ 内置的 widgetData.csv 路径。"""
+    return str(
+        _PROJECT_ROOT / "obsScriptFramework_" / "plugins" / "widgetData.csv"
+    )
 
 # ------------------------------------------------------------------
 # 导入
 # ------------------------------------------------------------------
-def load_tree(template_path: str, data_path: str,
+def load_tree(template_path: Optional[str] = None,
+              data_path: Optional[str] = None,
               initial_props_name: str = "props") -> WidgetTree:
     """
     从两个 CSV 文件加载控件树。
-
-    :param template_path: widgetAttributeDefinitionData.csv 路径
-    :param data_path: widgetData.csv 路径
-    :param initial_props_name: 根级控件默认的 props_name
-    :return: WidgetTree 实例
-    :raises ValueError: 解析失败（文件为空、表头不一致、字段缺失等）
+    不传参数时使用 obsScriptFramework_ 内置的默认路径。
     """
+    if template_path is None:
+        template_path = default_template_path()
+    if data_path is None:
+        data_path = default_data_path()
     parser = ControlTemplateParser()
     result = parser.parse_csv_files(template_path, data_path,
                                     initial_props_name=initial_props_name)
@@ -133,3 +152,8 @@ def _to_csv_scalar(value: Any) -> str:
         return json.dumps(value, ensure_ascii=False)
     except (TypeError, ValueError):
         return str(value)
+
+
+def load_default_tree() -> WidgetTree:
+    """加载框架内置的默认控件树，方便快速验证。"""
+    return load_tree(default_template_path(), default_data_path())
