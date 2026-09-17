@@ -43,6 +43,8 @@ QComboBox QAbstractItemView {{
     color: {s.input_foreground};
     selection-background-color: {s.accent};
     selection-color: #ffffff;
+    border: 1px solid {s.accent};
+    outline: 0;
 }}
 
 /* ---------- 树 ---------- */

@@ -134,6 +134,55 @@ def _apply_disabled_children(widget: QWidget) -> None:
     for child in widget.findChildren(QWidget):
         child.setEnabled(False)
 
+def _style_combo_popup(combo: QComboBox) -> None:
+    """
+    强制 QComboBox 的下拉列表使用不透明背景。
+
+    QComboBox 的下拉是一个独立顶层 view（QListView），
+    全局 QSS 里的 `QComboBox QAbstractItemView` 选择器有时不生效，
+    所以直接给 view 单独设置样式。
+
+    颜色优先从全局 QSS 化的 app 取调色板，不依赖 EditorSettings，
+    保证在切主题时无需重新构造 combo 也能跟随。
+    """
+    view = combo.view()
+    if view is None:
+        return
+
+    view.setAttribute(Qt.WA_TranslucentBackground, False)
+    view.setAutoFillBackground(True)
+
+    try:
+        from PySide6.QtGui import QPalette as _QPalette
+        palette = combo.palette()
+        bg = palette.color(_QPalette.ColorRole.Base).name()
+        fg = palette.color(_QPalette.ColorRole.Text).name()
+        sel_bg = palette.color(_QPalette.ColorRole.Highlight).name()
+        sel_fg = palette.color(_QPalette.ColorRole.HighlightedText).name()
+    except Exception:
+        # 兜底：硬编码浅色
+        bg, fg, sel_bg, sel_fg = "#ffffff", "#1e1e1e", "#3a7ebf", "#ffffff"
+
+    view.setStyleSheet(
+        "QListView {"
+        f"  background-color: {bg};"
+        f"  color: {fg};"
+        f"  selection-background-color: {sel_bg};"
+        f"  selection-color: {sel_fg};"
+        "  border: 1px solid #888;"
+        "  outline: 0;"
+        "}"
+        "QListView::item {"
+        "  padding: 4px 8px;"
+        "}"
+        "QListView::item:hover {"
+        f"  background-color: {sel_bg};"
+        f"  color: {sel_fg};"
+        "}"
+    )
+
+    combo.setAttribute(Qt.WA_TranslucentBackground, False)
+
 
 # ----------------------------------------------------------------------
 # 单个控件行
@@ -502,6 +551,7 @@ class PreviewPanel(QWidget):
             combo = QComboBox()
             combo.setEditable(variant == "EDITABLE")
             self._populate_combo(combo, node)
+            _style_combo_popup(combo)
             row.add_value(combo)
 
         elif cat == "PATHBOX":
