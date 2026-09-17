@@ -1,11 +1,12 @@
 """右侧属性面板：根据选中的控件节点显示/编辑属性。"""
 from typing import Optional, Dict, Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QLabel, QLineEdit,
     QCheckBox, QComboBox, QScrollArea, QFrame, QSizePolicy,
-    QHBoxLayout, QSpacerItem, QToolButton,
+    QHBoxLayout, QSpacerItem, QToolButton, QMessageBox,
+    QSpinBox, QDoubleSpinBox,
 )
 from editor.model import (
     WidgetNode, WidgetTree,
@@ -51,6 +52,8 @@ FIELD_LABELS = {
 
 # 已知的"函数名"字段：这些字段编辑时提供下拉建议
 FUNCTION_FIELD_NAMES = {
+    "click_callback",
+    "url",
     "modified_callback",
     "visible", "enabled",
     "checked",
@@ -65,6 +68,65 @@ FUNCTION_FIELD_NAMES = {
 }
 
 
+class _FunctionNameEditor(QWidget):
+    """函数名字段编辑器：可编辑下拉 + 点击 {} 按钮编辑函数体。"""
+
+    textChanged = Signal(str)
+    editRequested = Signal()
+
+    def __init__(self, current_text: str, candidates, parent=None):
+        super().__init__(parent)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        self._combo = QComboBox()
+        self._combo.setEditable(True)
+        self._combo.addItem("")
+        for c in candidates:
+            self._combo.addItem(c)
+        self._combo.setCurrentText(current_text or "")
+        self._combo.currentTextChanged.connect(self.textChanged)
+        layout.addWidget(self._combo, 1)
+
+        self._edit_btn = QToolButton()
+        self._edit_btn.setText("{}")
+        self._edit_btn.setToolTip("点击编辑函数体")
+        self._edit_btn.setFixedWidth(28)
+        self._edit_btn.clicked.connect(self.editRequested)
+        layout.addWidget(self._edit_btn)
+
+    def text(self) -> str:
+        return self._combo.currentText()
+
+    def setText(self, text: str):
+        self._combo.blockSignals(True)
+        self._combo.setCurrentText(text or "")
+        self._combo.blockSignals(False)
+
+    def blockSignals(self, b):
+        super().blockSignals(b)
+        self._combo.blockSignals(b)
+        self._edit_btn.blockSignals(b)
+
+def _make_readonly_widget(widget: QWidget) -> None:
+    """
+    递归把 widget 及直接子控件设为只读/禁用，保留可读性。
+    用于内置按钮（框架动态创建、不应被编辑器修改）。
+    """
+    if isinstance(widget, QLineEdit):
+        widget.setReadOnly(True)
+        widget.setStyleSheet("color: #666; background: #f0f0f0;")
+    elif isinstance(widget, QComboBox):
+        widget.setEnabled(False)
+        widget.setEditable(False)
+    elif isinstance(widget, (QCheckBox, QSpinBox, QDoubleSpinBox, QToolButton)):
+        widget.setEnabled(False)
+
+    # 只遍历直接子控件，避免 O(n^2)
+    for child in widget.findChildren(QWidget, options=Qt.FindDirectChildrenOnly):
+        _make_readonly_widget(child)
+
 class PropertyPanel(QWidget):
     """属性编辑面板。"""
 
@@ -72,6 +134,9 @@ class PropertyPanel(QWidget):
     field_edit_committed = Signal(object, str, object, object)
     # 分组折叠状态变化，参数：(section_key, expanded)
     section_toggled = Signal(str, bool)
+    # 双击函数名字段 → 请求编辑函数体
+    # 参数：(node, function_name, field_key)
+    function_edit_requested = Signal(object, str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -208,7 +273,9 @@ class PropertyPanel(QWidget):
 
         editor.blockSignals(True)
         try:
-            if isinstance(editor, QLineEdit):
+            if isinstance(editor, _FunctionNameEditor):
+                editor.setText(text)
+            elif isinstance(editor, QLineEdit):
                 editor.setText(text)
             elif isinstance(editor, QCheckBox):
                 editor.setChecked(bool(new_value))
@@ -238,6 +305,12 @@ class PropertyPanel(QWidget):
         if self._current_node is None:
             return
         self._populate_form(self._current_node, self._search_text)
+
+        # 内置按钮：全部属性设为只读（可查看不可修改）
+        from editor.model.csv_io import is_builtin_control
+        if is_builtin_control(self._current_node.control_name):
+            for editor in self._editors.values():
+                _make_readonly_widget(editor)
 
     def _clear_form(self):
         """清空两个分组的表单项。"""
@@ -373,14 +446,17 @@ class PropertyPanel(QWidget):
 
         # modified_callback → 可编辑下拉
         if field == "modified_callback":
-            editor = QComboBox()
-            editor.setEditable(True)
-            editor.addItem("")  # 空选项
-            for name in list_control_functions():
-                editor.addItem(name)
-            editor.setCurrentText(str(value) if value else "")
-            editor.currentTextChanged.connect(
+            editor = _FunctionNameEditor(
+                str(value) if value else "",
+                list_control_functions(),
+            )
+            editor.textChanged.connect(
                 lambda text: self._on_field_changed(node, field, text or None)
+            )
+            editor.editRequested.connect(
+                lambda: self.function_edit_requested.emit(
+                    node, str(value) if value else "", field
+                )
             )
             return editor
 
@@ -393,17 +469,42 @@ class PropertyPanel(QWidget):
         return editor
 
     def _make_property_editor(self, node: WidgetNode, prop_name: str, value: Any) -> QWidget:
+        # 布尔值 → 按场景选择展示方式
+        if isinstance(value, bool):
+            from editor.model.csv_io import is_builtin_control
+            if is_builtin_control(node.control_name):
+                # 内置控件：只读展示，文本形式更直观
+                label = QLabel("True" if value else "False")
+                label.setStyleSheet(
+                    "color: #666; font-family: Consolas, monospace;"
+                )
+                return label
+            cb = QCheckBox()
+            cb.setChecked(value)
+            cb.toggled.connect(
+                lambda checked, pn=prop_name: self._on_property_changed(
+                    node, pn, checked
+                )
+            )
+            return cb
+
+        # 函数名字段 → 带 {} 按钮的下拉
         if prop_name in FUNCTION_FIELD_NAMES:
-            editor = QComboBox()
-            editor.setEditable(True)
-            editor.addItem("")
-            for name in list_all_function_names():
-                editor.addItem(name)
-            editor.setCurrentText(str(value) if value is not None else "")
-            editor.currentTextChanged.connect(
+            editor = _FunctionNameEditor(
+                str(value) if value is not None else "",
+                list_all_function_names(),
+            )
+            editor.textChanged.connect(
                 lambda text, pn=prop_name: self._on_property_changed(node, pn, text)
             )
+            editor.editRequested.connect(
+                lambda pn=prop_name, v=value: self.function_edit_requested.emit(
+                    node, str(v) if v else "", f"prop::{pn}"
+                )
+            )
             return editor
+
+        # 其他 → 单行文本
         editor = QLineEdit()
         editor.setText(str(value) if value is not None else "")
         editor.textEdited.connect(
@@ -439,12 +540,18 @@ class PropertyPanel(QWidget):
         # 值的真正写入由 EditFieldCommand.redo() 完成
         self.field_edit_committed.emit(node, field, old_value, value)
 
-    def _on_property_changed(self, node: WidgetNode, prop_name: str, value: str):
+    def _on_property_changed(self, node: WidgetNode, prop_name: str, value):
         old_value = node.properties.get(prop_name)
-        new_value = value if value != "" else None
+
+        # 布尔值直接保留
+        if isinstance(value, bool):
+            new_value = value
+        else:
+            # 空字符串 → 视为删除该属性
+            new_value = value if value != "" else None
+
         if old_value == new_value:
             return
-        # 用 "prop::" 前缀区分结构化字段与自由属性
         self.field_edit_committed.emit(
             node, f"prop::{prop_name}", old_value, new_value
         )

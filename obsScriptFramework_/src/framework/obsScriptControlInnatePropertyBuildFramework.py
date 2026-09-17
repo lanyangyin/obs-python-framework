@@ -57,6 +57,8 @@ def build_controls(
                     None
                 ),
                 click_callback=lambda pr, ps: None,
+                visible=False,
+                enabled=False,
             )
         except Exception as e:
             log_manager.log_error(
@@ -225,6 +227,8 @@ def build_controls(
                     None
                 ),
                 click_callback=lambda pr, ps: None,
+                visible=False,
+                enabled=False,
             )
         except Exception as e:
             log_manager.log_error(

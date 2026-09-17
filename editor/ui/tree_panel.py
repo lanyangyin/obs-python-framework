@@ -163,20 +163,37 @@ class TreePanel(QWidget):
     # 内部：构建
     # ------------------------------------------------------------------
     def _build_item(self, node: WidgetNode) -> QStandardItem:
+        from editor.model.csv_io import is_builtin_control
+
         item = QStandardItem(self._format_label(node))
         item.setData(node, self.NODE_ROLE)
         item.setToolTip(self._format_tooltip(node))
-        # 允许拖拽 & 作为 drop target
-        item.setFlags(item.flags() | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+
+        if is_builtin_control(node.control_name):
+            # 内置按钮：禁用拖拽、灰色斜体、不可编辑
+            item.setFlags(
+                Qt.ItemIsEnabled | Qt.ItemIsSelectable
+            )
+            font = item.font()
+            font.setItalic(True)
+            item.setFont(font)
+            item.setForeground(QBrush(QColor("#999")))
+        else:
+            item.setFlags(item.flags() | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+
         for c in node.children:
             item.appendRow(self._build_item(c))
         return item
 
     @staticmethod
     def _format_label(node: WidgetNode) -> str:
+        from editor.model.csv_io import is_builtin_control
+
         parts = [node.object_name or node.control_name or "<unnamed>"]
         parts.append(f"({node.widget_category})")
-        if node.is_group and node.group_props_name:
+        if is_builtin_control(node.control_name):
+            parts.append("[内置]")
+        elif node.is_group and node.group_props_name:
             parts.append(f"[group: {node.group_props_name}]")
         elif node.props_name and node.props_name != "props":
             parts.append(f"[props: {node.props_name}]")
@@ -348,8 +365,12 @@ class TreePanel(QWidget):
         menu.addSeparator()
 
         # 删除
+        from editor.model.csv_io import is_builtin_control
+
+        is_builtin = node is not None and is_builtin_control(node.control_name)
+
         act_remove = menu.addAction("删除")
-        act_remove.setEnabled(node is not None)
+        act_remove.setEnabled(node is not None and not is_builtin)
         act_remove.triggered.connect(
             lambda: self.context_remove_requested.emit(node)
         )
@@ -367,6 +388,9 @@ class TreePanel(QWidget):
         act_down.triggered.connect(
             lambda: self.context_move_down_requested.emit(node)
         )
+
+        act_up.setEnabled(can_up and not is_builtin)
+        act_down.setEnabled(can_down and not is_builtin)
 
         menu.addSeparator()
 

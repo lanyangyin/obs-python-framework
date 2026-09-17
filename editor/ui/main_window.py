@@ -68,6 +68,10 @@ class MainWindow(QMainWindow):
         self._build_central()
         self._build_statusbar()
 
+        # 预览面板标签颜色
+        self.preview_panel.set_label_color(
+            self._editor_settings.preview_label_color
+        )
         # 恢复属性面板折叠状态
         self.property_panel.set_section_expanded(
             "core", self._session.get_section_expanded("core", True)
@@ -191,6 +195,9 @@ class MainWindow(QMainWindow):
         self.property_panel = PropertyPanel()
         self.property_panel.field_edit_committed.connect(self._on_field_edit_committed)
         self.property_panel.section_toggled.connect(self._on_section_toggled)
+        self.property_panel.function_edit_requested.connect(
+            self._on_function_edit_requested
+        )
 
         splitter.addWidget(self.tree_panel)
         splitter.addWidget(self.preview_panel)
@@ -270,6 +277,9 @@ class MainWindow(QMainWindow):
         save_settings(self._editor_settings)
         apply_to_app(QApplication.instance(), self._editor_settings)
         self._log.info(f"编辑器设置已更新: theme={self._editor_settings.theme}")
+        self.preview_panel.set_label_color(
+            self._editor_settings.preview_label_color
+        )
 
     def action_export_template(self):
         if self._tree is None:
@@ -518,6 +528,46 @@ class MainWindow(QMainWindow):
         if field in ("description", "object_name", "widget_variant",
                      "widget_category", "group_props_name"):
             self.preview_panel.load_tree(self._tree)
+
+    def _on_function_edit_requested(self, node, function_name, field_key):
+        """双击函数名字段 → 打开函数体编辑对话框。"""
+        from editor.model.function_editor import (
+            locate_function, guess_owner_class,
+        )
+        from editor.ui.function_editor_dialog import FunctionEditorDialog
+        from editor.model import clear_control_cache
+
+        if not function_name or not function_name.isidentifier():
+            QMessageBox.warning(
+                self, "提示",
+                f"当前值 '{function_name}' 不是合法的函数名。"
+            )
+            return
+
+        owner_class = guess_owner_class(field_key, function_name)
+        try:
+            loc = locate_function(function_name, owner_class=owner_class)
+        except (FileNotFoundError, ValueError) as e:
+            QMessageBox.warning(
+                self, "无法定位函数",
+                f"{e}\n\n"
+                f"请确认函数 '{function_name}' 是否已在 "
+                f"{owner_class} 中定义。"
+            )
+            return
+
+        dlg = FunctionEditorDialog(loc, self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+
+        # 重载后清缓存、刷预览
+        clear_control_cache()
+        if self._tree is not None:
+            self.preview_panel.load_tree(self._tree)
+        self.property_panel.refresh_field(field_key)
+        self._log.info(
+            f"已编辑并重载函数：{function_name} ({owner_class})"
+        )
 
     def _on_edit_command_applied(self, node, field):
         """

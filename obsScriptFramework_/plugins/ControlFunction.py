@@ -119,7 +119,7 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
 
     @staticmethod
     def digital_reference_data(*args, **kwargs):
-        v = 50
+        v = 60
         return v
 
     @staticmethod

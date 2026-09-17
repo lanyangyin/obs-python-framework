@@ -40,6 +40,9 @@ class EditorSettings:
     # 标签文字（属性面板左侧列）
     label_foreground: str = "#555555"
 
+    # 预览面板中控件标签（description）的文字颜色
+    preview_label_color: str = "#888888"
+
 
 LIGHT_PRESET: Dict[str, Any] = {
     "theme": "light",
@@ -55,6 +58,7 @@ LIGHT_PRESET: Dict[str, Any] = {
     "property_background": "#fafafa",
     "property_foreground": "#1e1e1e",
     "label_foreground": "#555555",
+    "preview_label_color": "#888888",
 }
 
 DARK_PRESET: Dict[str, Any] = {
@@ -71,6 +75,7 @@ DARK_PRESET: Dict[str, Any] = {
     "property_background": "#2b2b2b",
     "property_foreground": "#e0e0e0",
     "label_foreground": "#a0a0a0",
+    "preview_label_color": "#a0a0a0",
 }
 
 

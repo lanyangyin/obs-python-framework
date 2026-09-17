@@ -27,6 +27,7 @@ COLOR_FIELDS = [
     ("property_background", "属性面板背景"),
     ("property_foreground", "属性面板文字"),
     ("label_foreground", "标签文字"),
+    ("preview_label_color", "预览控件标签"),
 ]
 
 

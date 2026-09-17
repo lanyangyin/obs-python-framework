@@ -16,6 +16,14 @@ from .function_registry import (
     list_button_functions,
     list_all_function_names,
 )
+from .function_editor import (
+    FunctionLocation,
+    locate_function,
+    read_function_body,
+    write_function_body,
+    reload_module,
+    guess_owner_class,
+)
 from .props_utils import recompute_props_names
 from .diff import (
     DiffReport, NodeDiff, FieldChange, diff_trees,
@@ -51,4 +59,10 @@ __all__ = [
     "resolve",
     "resolve_property",
     "clear_control_cache",
+    "FunctionLocation",
+    "locate_function",
+    "read_function_body",
+    "write_function_body",
+    "reload_module",
+    "guess_owner_class",
 ]

@@ -18,6 +18,30 @@ from pathlib import Path
 
 # 项目根目录（editor/model/csv_io.py -> editor/model -> editor -> 项目根）
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+# 框架在运行时动态创建的两个内置按钮（不在 CSV 中）
+# 名字是 UTF-8 编码的十六进制字符串
+BUILTIN_BUTTONS = [
+    {
+        "control_name": "e58581e8aeb8e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+        "description": "允许执行控件修改回调",
+        "long_description": "允许执行控件修改回调",
+        "widget_variant": "DEFAULT",
+        "position": "top",
+    },
+    {
+        "control_name": "e7a681e6ada2e689a7e8a18ce68ea7e4bbb6e4bfaee694b9e59b9ee8b083",
+        "description": "禁止执行控件修改回调",
+        "long_description": "禁止执行控件修改回调",
+        "widget_variant": "DEFAULT",
+        "position": "bottom",
+    },
+]
+
+BUILTIN_CONTROL_NAMES = {b["control_name"] for b in BUILTIN_BUTTONS}
+
+
+def is_builtin_control(control_name: str) -> bool:
+    return control_name in BUILTIN_CONTROL_NAMES
 
 
 def default_template_path() -> str:
@@ -67,7 +91,54 @@ def load_tree(template_path: Optional[str] = None,
     for root_dict in result.get("tree", []) or []:
         _build(root_dict, None)
 
+    _inject_builtin_buttons(tree)
     return tree
+
+def _inject_builtin_buttons(tree: WidgetTree) -> None:
+    """
+    往树里注入框架的两个内置按钮。
+    - 若不存在 → 新建并添加
+    - 若已存在（来自旧 CSV）→ 强制修正它们的 properties
+    两种情况都确保 visible / enabled 固定为 False（与框架运行时一致）。
+    """
+    existing = tree.all_control_names()
+
+    def _apply_builtin_props(node: WidgetNode, spec: dict) -> None:
+        """强制设置内置按钮的关键属性。"""
+        node.description = spec["description"]
+        node.long_description = spec["long_description"]
+        if spec.get("widget_variant") is not None:
+            node.widget_variant = spec["widget_variant"]
+        node.properties["visible"] = False
+        node.properties["enabled"] = False
+        # 其他按钮常见自由属性也初始化一下，避免属性面板只显示两项
+        node.properties.setdefault("url", "")
+        node.properties.setdefault("click_callback", "")
+
+    def _create(spec: dict) -> WidgetNode:
+        node = WidgetNode(
+            control_name=spec["control_name"],
+            widget_category="BUTTON",
+            object_name=spec["control_name"],
+            props_name="props",
+            description=spec["description"],
+            long_description=spec["long_description"],
+            widget_variant=spec["widget_variant"],
+        )
+        _apply_builtin_props(node, spec)
+        return node
+
+    top = BUILTIN_BUTTONS[0]
+    if top["control_name"] in existing:
+        _apply_builtin_props(tree.find(top["control_name"]), top)
+    else:
+        tree.add_root(_create(top), 0)
+
+    bottom = BUILTIN_BUTTONS[1]
+    if bottom["control_name"] in existing:
+        _apply_builtin_props(tree.find(bottom["control_name"]), bottom)
+    else:
+        tree.add_root(_create(bottom), len(tree.roots()))
 
 
 # ------------------------------------------------------------------

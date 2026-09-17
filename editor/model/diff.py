@@ -66,16 +66,24 @@ def diff_trees(old_tree: Optional[WidgetTree],
                new_tree: WidgetTree) -> DiffReport:
     """
     生成 old_tree -> new_tree 的差异报告。
-    old_tree 为 None 时视为全新文件（所有节点都算 added）。
+    内置按钮不参与对比（它们由框架运行时动态创建）。
     """
+    from .csv_io import is_builtin_control
+
+    def _visible(node):
+        return not is_builtin_control(node.control_name)
+
     report = DiffReport()
 
     if old_tree is None:
-        report.added = list(new_tree.iter_all())
+        report.added = [n for n in new_tree.iter_all() if _visible(n)]
         return report
 
-    old_index = {n.control_name: n for n in old_tree.iter_all()}
-    new_index = {n.control_name: n for n in new_tree.iter_all()}
+    old_index = {n.control_name: n for n in old_tree.iter_all() if _visible(n)}
+    new_index = {n.control_name: n for n in new_tree.iter_all() if _visible(n)}
+
+    # old_index = {n.control_name: n for n in old_tree.iter_all()}
+    # new_index = {n.control_name: n for n in new_tree.iter_all()}
 
     for name, node in new_index.items():
         if name not in old_index:

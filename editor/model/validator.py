@@ -47,11 +47,15 @@ def validate(tree: WidgetTree) -> List[ValidationError]:
     5. 自由属性组合法性：不支持的属性出现时给出警告
     6. 必填字段（根据模板）非空——MVP 阶段先不做，由 csv_io 保证
     """
+    from .csv_io import is_builtin_control
+
     errors: List[ValidationError] = []
 
     # ---------- 1. control_name 唯一性 ----------
     seen_control_names: Dict[str, WidgetNode] = {}
     for node in tree.iter_all():
+        if is_builtin_control(node.control_name):
+            continue
         if not node.control_name:
             errors.append(ValidationError(
                 control_name="<unknown>", field="control_name",
@@ -75,6 +79,8 @@ def validate(tree: WidgetTree) -> List[ValidationError]:
     # ---------- 2. group_props_name 校验 ----------
     seen_group_names: Dict[str, WidgetNode] = {}
     for node in tree.iter_all():
+        if is_builtin_control(node.control_name):
+            continue
         if not node.is_group:
             continue
         gpn = node.group_props_name
@@ -101,6 +107,8 @@ def validate(tree: WidgetTree) -> List[ValidationError]:
     # ---------- 3. props_name 有效性 ----------
     available_props = tree.group_props_names()  # 含基础 "props"
     for node in tree.iter_all():
+        if is_builtin_control(node.control_name):
+            continue
         if node.props_name not in available_props:
             errors.append(ValidationError(
                 control_name=node.control_name, field="props_name",
@@ -113,6 +121,8 @@ def validate(tree: WidgetTree) -> List[ValidationError]:
     # ---------- 4. 孤儿 group_props_name（警告） ----------
     used_props: Set[str] = set()
     for node in tree.iter_all():
+        if is_builtin_control(node.control_name):
+            continue
         used_props.add(node.props_name)
     for gpn, node in seen_group_names.items():
         if gpn not in used_props:
@@ -124,6 +134,8 @@ def validate(tree: WidgetTree) -> List[ValidationError]:
 
     # ---------- 5. 自由属性适用性（警告） ----------
     for node in tree.iter_all():
+        if is_builtin_control(node.control_name):
+            continue
         variant = node.widget_variant
         unsupported = UNSUPPORTED_FIELDS.get((node.widget_category, variant), set())
         for prop_name in node.properties.keys():

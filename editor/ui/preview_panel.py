@@ -1,7 +1,7 @@
 """模拟 OBS 脚本控件面板的预览。"""
 from typing import Dict, Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFrame,
     QLabel, QCheckBox, QLineEdit, QSpinBox, QDoubleSpinBox,
@@ -9,7 +9,10 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem, QSizePolicy,
 )
 
-from editor.model import WidgetTree, WidgetNode, resolve_property, clear_control_cache
+from editor.model import (
+    WidgetTree, WidgetNode, resolve_property, clear_control_cache,
+)
+
 
 # ----------------------------------------------------------------------
 # 类型转换辅助
@@ -47,8 +50,6 @@ def _to_number(value, default: float = 0.0):
 
 
 def _info_type_color(info_type) -> str:
-    """根据 info_type 值返回文字颜色。"""
-    # info_type 可能是 TextBoxInfoVariant 枚举、int、或字符串
     val = info_type
     if hasattr(val, "value"):
         val = val.value
@@ -56,72 +57,161 @@ def _info_type_color(info_type) -> str:
         name = val.name
     else:
         name = str(val).upper()
-
     if "ERROR" in name:
         return "#c44"
     if "WARNING" in name:
         return "#c80"
     return "#3a7ebf"
 
+
+# ----------------------------------------------------------------------
+# visible / enabled 状态
+# ----------------------------------------------------------------------
+_STATE_NORMAL = "normal"
+_STATE_INVISIBLE = "invisible"
+_STATE_DISABLED = "disabled"
+_STATE_BOTH = "both"
+
+
+def _compute_state(visible: bool, enabled: bool) -> str:
+    if visible and enabled:
+        return _STATE_NORMAL
+    if not visible and enabled:
+        return _STATE_INVISIBLE
+    if visible and not enabled:
+        return _STATE_DISABLED
+    return _STATE_BOTH
+
+
+def _style_for_state(state: str, is_group: bool = False) -> str:
+    base = "QGroupBox { margin-top: 10px; }" if is_group else ""
+
+    if state == _STATE_NORMAL:
+        return base
+
+    if state == _STATE_INVISIBLE:
+        # 仅 visible=False：红色细虚线
+        if is_group:
+            return (base +
+                "QGroupBox {"
+                "  border: 1px dashed #c44;"
+                "  background-color: rgba(204, 68, 68, 0.10);"
+                "  border-radius: 4px;"
+                "  padding-top: 4px;"
+                "}")
+        return ("border: 1px dashed #c44;"
+                " background-color: rgba(204, 68, 68, 0.10);"
+                " border-radius: 3px;")
+
+    if state == _STATE_DISABLED:
+        # 仅 enabled=False：明显灰底
+        if is_group:
+            return (base +
+                "QGroupBox {"
+                "  background-color: rgba(120, 120, 120, 0.18);"
+                "  border-radius: 4px;"
+                "  padding-top: 4px;"
+                "}")
+        return ("background-color: rgba(120, 120, 120, 0.18);"
+                " border-radius: 3px;")
+
+    # BOTH：红虚线 + 灰底
+    if is_group:
+        return (base +
+            "QGroupBox {"
+            "  border: 2px dashed #c44;"
+            "  background-color: rgba(120, 120, 120, 0.22);"
+            "  border-radius: 4px;"
+            "  padding-top: 4px;"
+            "}")
+    return ("border: 2px dashed #c44;"
+            " background-color: rgba(120, 120, 120, 0.22);"
+            " border-radius: 3px;")
+
+
+def _apply_disabled_children(widget: QWidget) -> None:
+    """把 widget 的所有后代设为 disabled，视觉灰显。"""
+    for child in widget.findChildren(QWidget):
+        child.setEnabled(False)
+
+
 # ----------------------------------------------------------------------
 # 单个控件行
 # ----------------------------------------------------------------------
 class _PreviewRow(QFrame):
     """
-    一行预览：label + value widget（或仅一个控件）。
+    一行预览：label + value widget。
 
-    点击处理：覆写 mousePressEvent；所有子控件设
-    `WA_TransparentForMouseEvents`，让事件直接落到 Row 上。
+    - 点击子控件或行本身 → clicked.emit(node)
+    - 子控件保留自身交互（如 QComboBox 下拉、QListWidget 滚动）
+    - tooltip 显示 long_description
     """
 
     clicked = Signal(object)  # WidgetNode
 
-    def __init__(self, node: WidgetNode, parent=None):
+    def __init__(self, node: WidgetNode, label_color: str = "#888888",
+                 parent=None):
         super().__init__(parent)
         self._node = node
+        self._label_color = label_color
         self.setFrameShape(QFrame.NoFrame)
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(4, 2, 4, 2)
         self._layout.setSpacing(6)
+
+        # 整行 tooltip
+        tip = node.long_description or node.description or node.control_name
+        self.setToolTip(tip)
 
     # ---- 点击 ----
     def mousePressEvent(self, event):
         self.clicked.emit(self._node)
         event.accept()
 
+    # ---- 事件过滤：子控件被点击时也触发 clicked ----
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.MouseButtonPress:
+            try:
+                self.clicked.emit(self._node)
+            except Exception:
+                pass
+        return super().eventFilter(obj, event)
+
     # ---- 布局辅助 ----
     def add_single(self, widget: QWidget):
-        """整行只有一个控件（如 CheckBox / Button）。"""
         self._layout.addWidget(widget)
         self._layout.addStretch()
-        self._make_transparent(widget)
+        self._watch(widget)
 
     def add_label(self, text: str, width: int = 140):
         label = QLabel(text)
         label.setFixedWidth(width)
-        label.setStyleSheet("color: #888;")
+        label.setStyleSheet(f"color: {self._label_color};")
         self._layout.addWidget(label)
-        self._make_transparent(label)
+        self._watch(label)
 
     def add_value(self, widget: QWidget):
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._layout.addWidget(widget, 1)
-        self._make_transparent(widget)
+        self._watch(widget)
 
     def add_value_pair(self, w1: QWidget, w2: QWidget):
-        """路径框：输入框 + 浏览按钮。"""
         w1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._layout.addWidget(w1, 1)
         self._layout.addWidget(w2)
-        self._make_transparent(w1)
-        self._make_transparent(w2)
+        self._watch(w1)
+        self._watch(w2)
 
-    @staticmethod
-    def _make_transparent(widget: QWidget):
-        """让 widget 及其所有后代的鼠标事件穿透到 Row。"""
-        widget.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+    def _watch(self, widget: QWidget):
+        """给 widget 及其后代设 tooltip + 装 eventFilter。"""
+        if widget is None:
+            return
+        tip = self._node.long_description or self._node.description or self._node.control_name
+        widget.setToolTip(tip)
+        widget.installEventFilter(self)
         for child in widget.findChildren(QWidget):
-            child.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+            child.setToolTip(tip)
+            child.installEventFilter(self)
 
 
 # ----------------------------------------------------------------------
@@ -131,10 +221,9 @@ class _PreviewGroup(QGroupBox):
     """
     分组框预览。CHECKABLE 变体支持折叠/展开。
 
-    点击处理：
-    - 标题区（顶部约 22px）→ 选中节点 + 切换勾选
-    - 内容区空白 → 只选中节点
-    - 子控件（Row）会自己接收点击，不会冒泡到 Group
+    - 点击标题区（顶部约 22px）→ 选中节点 + 切换勾选
+    - 点击内容区空白 → 只选中节点
+    - 子控件（Row）自己接收点击，不会冒泡到 Group
     """
 
     clicked = Signal(object)
@@ -149,19 +238,19 @@ class _PreviewGroup(QGroupBox):
         self.setTitle(title)
         self.setStyleSheet("QGroupBox { margin-top: 10px; }")
 
+        tip = node.long_description or node.description or node.control_name
+        self.setToolTip(tip)
+
         if self._is_checkable:
             self.setCheckable(True)
             self.setChecked(True)
             self.toggled.connect(self._on_toggled)
 
-    # ---- 点击 ----
     def mousePressEvent(self, event):
         if self._is_checkable and event.pos().y() < self.TITLE_HEIGHT:
-            # 标题区：切换勾选 + 选中节点
             self.setChecked(not self.isChecked())
             self.clicked.emit(self._node)
         else:
-            # 内容区空白：只选中节点
             self.clicked.emit(self._node)
         event.accept()
 
@@ -182,13 +271,14 @@ class _PreviewGroup(QGroupBox):
 class PreviewPanel(QWidget):
     """模拟 OBS 脚本控件面板的预览。"""
 
-    node_clicked = Signal(object)  # WidgetNode
+    node_clicked = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._tree: Optional[WidgetTree] = None
         self._widgets: Dict[str, QWidget] = {}
         self._highlighted: Optional[str] = None
+        self._label_color: str = "#888888"
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -228,6 +318,13 @@ class PreviewPanel(QWidget):
     # ------------------------------------------------------------------
     # 对外接口
     # ------------------------------------------------------------------
+    def set_label_color(self, color: str) -> None:
+        """设置预览中控件标签颜色，立即生效。"""
+        if color and color != self._label_color:
+            self._label_color = color
+            if self._tree is not None:
+                self.load_tree(self._tree)
+
     def load_tree(self, tree: Optional[WidgetTree]) -> None:
         clear_control_cache()
         self._tree = tree
@@ -239,8 +336,31 @@ class PreviewPanel(QWidget):
             self._hint.setText("（未加载控件树）")
             return
 
+        # 统计状态
+        n_invisible = 0
+        n_disabled = 0
+        n_both = 0
+        for node in tree.iter_all():
+            visible = _to_bool(resolve_property(node, "visible", True), default=True)
+            enabled = _to_bool(resolve_property(node, "enabled", True), default=True)
+            state = _compute_state(visible, enabled)
+            if state == _STATE_INVISIBLE:
+                n_invisible += 1
+            elif state == _STATE_DISABLED:
+                n_disabled += 1
+            elif state == _STATE_BOTH:
+                n_both += 1
+
+        parts = [f"共 {len(tree)} 个控件"]
+        if n_invisible:
+            parts.append(f"隐藏 {n_invisible}")
+        if n_disabled:
+            parts.append(f"禁用 {n_disabled}")
+        if n_both:
+            parts.append(f"隐藏+禁用 {n_both}")
         self._hint.setText(
-            f"模拟 OBS 控件预览（{len(tree)} 个控件，点击任意控件 → 选中节点）"
+            "模拟 OBS 控件预览（" + "，".join(parts)
+            + "；点击任意控件 → 选中节点）"
         )
 
         for node in tree.roots():
@@ -266,11 +386,6 @@ class PreviewPanel(QWidget):
         self._highlighted = name
         self._set_highlight(w, True)
         self._scroll.ensureWidgetVisible(w)
-
-    def _on_refresh(self):
-        """重新解析所有控件的真实数值。"""
-        if self._tree is not None:
-            self.load_tree(self._tree)
 
     # ------------------------------------------------------------------
     # 内部：清空 & 高亮
@@ -308,18 +423,34 @@ class PreviewPanel(QWidget):
                     " border-radius: 3px;"
                 )
         else:
-            if isinstance(w, QGroupBox):
-                w.setStyleSheet("QGroupBox { margin-top: 10px; }")
-            else:
-                w.setStyleSheet("")
+            state = w.property("_preview_state") or _STATE_NORMAL
+            is_group = isinstance(w, QGroupBox)
+            w.setStyleSheet(_style_for_state(state, is_group=is_group))
 
     # ------------------------------------------------------------------
     # 内部：构建
     # ------------------------------------------------------------------
     def _build_node(self, node: WidgetNode) -> Optional[QWidget]:
+        visible = _to_bool(resolve_property(node, "visible", True), default=True)
+        enabled = _to_bool(resolve_property(node, "enabled", True), default=True)
+        state = _compute_state(visible, enabled)
+
         if node.widget_category == "GROUP":
-            return self._build_group(node)
-        return self._build_leaf(node)
+            w = self._build_group(node)
+        else:
+            w = self._build_leaf(node)
+
+        if w is None:
+            return None
+
+        is_group = (node.widget_category == "GROUP")
+        w.setProperty("_preview_state", state)
+        w.setStyleSheet(_style_for_state(state, is_group=is_group))
+
+        if not enabled:
+            _apply_disabled_children(w)
+
+        return w
 
     def _build_group(self, node: WidgetNode) -> QWidget:
         box = _PreviewGroup(node)
@@ -338,7 +469,7 @@ class PreviewPanel(QWidget):
         return box
 
     def _build_leaf(self, node: WidgetNode) -> QWidget:
-        row = _PreviewRow(node)
+        row = _PreviewRow(node, label_color=self._label_color)
         row.clicked.connect(self._on_clicked)
 
         cat = node.widget_category
@@ -347,8 +478,7 @@ class PreviewPanel(QWidget):
 
         if cat == "CHECKBOX":
             cb = QCheckBox(label)
-            checked = _to_bool(resolve_property(node, "checked", True))
-            cb.setChecked(checked)
+            cb.setChecked(_to_bool(resolve_property(node, "checked", True), True))
             row.add_single(cb)
 
         elif cat == "DIGITALBOX":
@@ -386,7 +516,7 @@ class PreviewPanel(QWidget):
         elif cat == "COLORBOX":
             row.add_label(label)
             color_btn = QPushButton()
-            color_btn.setFixedSize(60, 22)
+            color_btn.setMinimumHeight(22)
             color_btn.setStyleSheet(
                 f"background-color: {self._make_color_hex(node)};"
                 " border: 1px solid #888; border-radius: 2px;"
@@ -417,10 +547,10 @@ class PreviewPanel(QWidget):
     # 内部：控件填充
     # ------------------------------------------------------------------
     def _make_digital_widget(self, variant: Optional[str], node: WidgetNode) -> QWidget:
-        min_val = _to_number(resolve_property(node, "min_val", 0), default=0)
-        max_val = _to_number(resolve_property(node, "max_val", 100), default=100)
-        step = _to_number(resolve_property(node, "step", 1), default=1)
-        value = _to_number(resolve_property(node, "digital", 50), default=50)
+        min_val = _to_number(resolve_property(node, "min_val", 0), 0)
+        max_val = _to_number(resolve_property(node, "max_val", 100), 100)
+        step = _to_number(resolve_property(node, "step", 1), 1)
+        value = _to_number(resolve_property(node, "digital", 50), 50)
 
         is_float = variant in ("FLOAT", "FLOAT_SLIDER")
 
@@ -490,7 +620,6 @@ class PreviewPanel(QWidget):
             combo.addItem("（无选项）")
             return
 
-        # 应用当前值
         if current_value is not None:
             idx = combo.findData(current_value)
             if idx >= 0:
@@ -516,7 +645,7 @@ class PreviewPanel(QWidget):
                 list_widget.addItem(it)
 
     # ------------------------------------------------------------------
-    # 内部：特殊控件的展示
+    # 内部：特殊控件展示
     # ------------------------------------------------------------------
     def _make_color_hex(self, node: WidgetNode) -> str:
         r = _to_int(resolve_property(node, "color_red", 255), 255)
@@ -537,3 +666,7 @@ class PreviewPanel(QWidget):
     # ------------------------------------------------------------------
     def _on_clicked(self, node: WidgetNode) -> None:
         self.node_clicked.emit(node)
+
+    def _on_refresh(self):
+        if self._tree is not None:
+            self.load_tree(self._tree)
