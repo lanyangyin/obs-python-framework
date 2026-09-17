@@ -122,6 +122,7 @@ class MainWindow(QMainWindow):
 
         self.tree_panel = TreePanel()
         self.tree_panel.node_selected.connect(self._on_node_selected)
+        self.tree_panel.node_move_requested.connect(self._on_node_move_requested)
 
         self.property_panel = PropertyPanel()
         self.property_panel.node_edited.connect(self._on_node_edited)
@@ -495,4 +496,20 @@ class MainWindow(QMainWindow):
         self._log.info(
             f"移动控件: {node.control_name} -> {parent.control_name if parent else '(root)'} "
             f"index={new_idx}"
+        )
+
+    def _on_node_move_requested(self, source_node, new_parent, new_index):
+        """拖放结束：把移动交给 MoveNodeCommand，走 undo stack。"""
+        if self._tree is None:
+            return
+        try:
+            cmd = MoveNodeCommand(self._tree, source_node, new_parent, new_index)
+            self._undo_stack.push(cmd)
+        except Exception as e:
+            log_exception(self._log, "拖放移动失败", e)
+            return
+        self._log.info(
+            f"拖放移动: {source_node.control_name} -> "
+            f"{new_parent.control_name if new_parent else '(root)'} "
+            f"index={new_index}"
         )
