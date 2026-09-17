@@ -1,0 +1,15 @@
+{
+  "theme": "light",
+  "font_family": "",
+  "font_size": 0,
+  "foreground": "#1e1e1e",
+  "background": "#f0f0f0",
+  "accent": "#3a7ebf",
+  "input_background": "#ffffff",
+  "input_foreground": "#1e1e1e",
+  "tree_background": "#ffffff",
+  "tree_foreground": "#1e1e1e",
+  "property_background": "#fafafa",
+  "property_foreground": "#1e1e1e",
+  "label_foreground": "#555555"
+}
