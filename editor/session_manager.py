@@ -23,8 +23,16 @@ _KEY_SECTION_EXPANDED = "session/section_expanded"
 
 
 class SessionManager:
-    def __init__(self):
-        self._s = QSettings(_ORG, _APP)
+    def __init__(self, settings_path: Optional[str] = None):
+        """
+        :param settings_path: 可选，指定一个 ini 文件路径。
+                              用于测试或需要在指定位置存储场景。
+                              不传则用系统默认位置（注册表 / plist / ini）。
+        """
+        if settings_path:
+            self._s = QSettings(settings_path, QSettings.IniFormat)
+        else:
+            self._s = QSettings(_ORG, _APP)
 
     # ------------------------------------------------------------------
     # 最近文件
