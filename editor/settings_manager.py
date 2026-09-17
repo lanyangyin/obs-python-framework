@@ -6,8 +6,9 @@ from dataclasses import dataclass, asdict, fields
 from pathlib import Path
 from typing import Any, Dict
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_SETTINGS_FILE = _PROJECT_ROOT / "editor_settings.json"
+from ._bootstrap import get_project_root
+
+_SETTINGS_FILE = get_project_root() / "editor_settings.json"
 
 
 # ----------------------------------------------------------------------

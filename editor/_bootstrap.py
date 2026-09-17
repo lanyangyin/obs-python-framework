@@ -9,15 +9,40 @@ import types
 from pathlib import Path
 
 EDITOR_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = EDITOR_DIR.parent
-FRAMEWORK_DIR = PROJECT_ROOT / "obsScriptFramework_"
+
+
+def is_frozen() -> bool:
+    """是否运行在 PyInstaller 打包后的环境里。"""
+    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")
+
+
+def get_project_root() -> Path:
+    """
+    返回项目根目录。
+    - 打包后：exe 所在目录
+    - 源码运行：editor 的父目录（即包含 obsScriptFramework_ 的目录）
+    """
+    if is_frozen():
+        return Path(sys.executable).resolve().parent
+    return EDITOR_DIR.parent
+
+
+def get_framework_dir() -> Path:
+    """返回 obsScriptFramework_ 目录。"""
+    return get_project_root() / "obsScriptFramework_"
+
+
+# 兼容旧代码引用
+PROJECT_ROOT = get_project_root()
+FRAMEWORK_DIR = get_framework_dir()
 
 
 def setup_paths() -> None:
     """把项目根目录和框架目录加入 sys.path。"""
-    for p in (PROJECT_ROOT, FRAMEWORK_DIR):
-        if str(p) not in sys.path:
-            sys.path.insert(0, str(p))
+    for p in (get_project_root(), get_framework_dir()):
+        s = str(p)
+        if s not in sys.path:
+            sys.path.insert(0, s)
 
 
 def install_mock_obspython() -> None:

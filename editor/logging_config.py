@@ -12,9 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-# editor/logging_config.py -> editor -> 项目根
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_LOG_DIR = _PROJECT_ROOT / "LOG"
+from ._bootstrap import get_project_root
+
+_LOG_DIR = get_project_root() / "LOG"
 
 MAX_LOG_FILES = 30
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

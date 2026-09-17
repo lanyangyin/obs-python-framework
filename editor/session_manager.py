@@ -87,8 +87,8 @@ class SessionManager:
         v = self._s.value(_KEY_LAST_DIR, "")
         if v and Path(v).is_dir():
             return v
-        # 回退到项目根
-        return str(Path(__file__).resolve().parent.parent)
+        from ._bootstrap import get_project_root
+        return str(get_project_root())
 
     def set_last_directory(self, path: str) -> None:
         p = Path(path)

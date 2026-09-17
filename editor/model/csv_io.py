@@ -17,7 +17,7 @@ from .widget_tree import WidgetTree
 from pathlib import Path
 
 # 项目根目录（editor/model/csv_io.py -> editor/model -> editor -> 项目根）
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+from .._bootstrap import get_project_root
 # 框架在运行时动态创建的两个内置按钮（不在 CSV 中）
 # 名字是 UTF-8 编码的十六进制字符串
 BUILTIN_BUTTONS = [
@@ -47,7 +47,7 @@ def is_builtin_control(control_name: str) -> bool:
 def default_template_path() -> str:
     """返回 obsScriptFramework_ 内置的控件属性定义文件路径。"""
     return str(
-        _PROJECT_ROOT / "obsScriptFramework_" / "src" / "data"
+        get_project_root() / "obsScriptFramework_" / "src" / "data"
         / "widgetAttributeDefinitionData.csv"
     )
 
@@ -55,7 +55,7 @@ def default_template_path() -> str:
 def default_data_path() -> str:
     """返回 obsScriptFramework_ 内置的 widgetData.csv 路径。"""
     return str(
-        _PROJECT_ROOT / "obsScriptFramework_" / "plugins" / "widgetData.csv"
+        get_project_root() / "obsScriptFramework_" / "plugins" / "widgetData.csv"
     )
 
 # ------------------------------------------------------------------
