@@ -6,11 +6,7 @@ from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
-from PySide6.QtWidgets import (
-    QMainWindow, QSplitter, QToolBar, QStatusBar,
-    QFileDialog, QMessageBox, QLabel, QWidget, QVBoxLayout,
-    QDialog,
-)
+
 
 from editor.model import (
     WidgetTree, load_tree, save_tree, validate,
@@ -25,6 +21,7 @@ from editor.ui.commands import (
     AddNodeCommand, RemoveNodeCommand, MoveNodeCommand, EditFieldCommand,
 )
 from editor.ui.new_node_dialog import NewNodeDialog
+from editor.ui.preview_panel import PreviewPanel
 from editor.settings_manager import load_settings, save_settings, EditorSettings
 from editor.ui.style_utils import apply_to_app
 from editor.ui.settings_dialog import SettingsDialog
@@ -181,31 +178,32 @@ class MainWindow(QMainWindow):
         self.tree_panel = TreePanel()
         self.tree_panel.node_selected.connect(self._on_node_selected)
         self.tree_panel.node_move_requested.connect(self._on_node_move_requested)
+
         self.tree_panel.context_add_requested.connect(self._on_context_add)
         self.tree_panel.context_add_child_requested.connect(self._on_context_add_child)
         self.tree_panel.context_remove_requested.connect(self._on_context_remove)
         self.tree_panel.context_move_up_requested.connect(self._on_context_move_up)
         self.tree_panel.context_move_down_requested.connect(self._on_context_move_down)
 
+        self.preview_panel = PreviewPanel()
+        self.preview_panel.node_clicked.connect(self._on_preview_node_clicked)
+
         self.property_panel = PropertyPanel()
         self.property_panel.field_edit_committed.connect(self._on_field_edit_committed)
         self.property_panel.section_toggled.connect(self._on_section_toggled)
 
-        # 恢复折叠状态
-        self.property_panel.set_section_expanded(
-            "core", self._session.get_section_expanded("core", True)
-        )
-        self.property_panel.set_section_expanded(
-            "free", self._session.get_section_expanded("free", True)
-        )
-
         splitter.addWidget(self.tree_panel)
+        splitter.addWidget(self.preview_panel)
         splitter.addWidget(self.property_panel)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 2)
-        splitter.setSizes([400, 800])
+        splitter.setStretchFactor(2, 2)
+        splitter.setSizes([320, 420, 460])
 
         self.setCentralWidget(splitter)
+
+        # 防止选中同步递归
+        self._syncing_selection = False
 
     def _build_statusbar(self):
         self.status_bar = QStatusBar()
@@ -229,6 +227,7 @@ class MainWindow(QMainWindow):
             self._log.info(f"加载 CSV: {self._current_data_path}")
             self._tree = load_tree(self._current_template_path, self._current_data_path)
             self.tree_panel.load_tree(self._tree)
+            self.preview_panel.load_tree(self._tree)
             self.property_panel.set_tree(self._tree)
             self._modified = False
             self._refresh_status()
@@ -293,6 +292,7 @@ class MainWindow(QMainWindow):
             self._tree = load_tree(self._current_template_path, path)
             self._current_data_path = path
             self.tree_panel.load_tree(self._tree)
+            self.preview_panel.load_tree(self._tree)
             self.property_panel.set_tree(self._tree)
             self._modified = False
             self._refresh_status()
@@ -316,6 +316,7 @@ class MainWindow(QMainWindow):
             self._tree = load_tree(self._current_template_path, path)
             self._current_data_path = path
             self.tree_panel.load_tree(self._tree)
+            self.preview_panel.load_tree(self._tree)
             self.property_panel.set_tree(self._tree)
             self._undo_stack.blockSignals(True)
             self._undo_stack.clear()
@@ -445,6 +446,7 @@ class MainWindow(QMainWindow):
         try:
             self._tree = load_tree(self._current_template_path, self._current_data_path)
             self.tree_panel.load_tree(self._tree)
+            self.preview_panel.load_tree(self._tree)
             self._modified = False
             self._refresh_status()
         except Exception as e:
@@ -468,10 +470,36 @@ class MainWindow(QMainWindow):
         self._selected_node = node
         self.property_panel.set_node(node)
         self._update_node_action_states()
+
+        # 同步预览高亮（防止循环）
+        if not self._syncing_selection:
+            self._syncing_selection = True
+            try:
+                if node is not None:
+                    self.preview_panel.select_by_control_name(node.control_name)
+                else:
+                    self.preview_panel.select_by_control_name("")
+            finally:
+                self._syncing_selection = False
+
         if node is not None:
             self.status_bar.showMessage(
                 f"选中: {node.control_name} ({node.widget_category})", 2000
             )
+
+    def _on_preview_node_clicked(self, node):
+        """预览面板点击了某个控件。"""
+        if node is None or self._tree is None:
+            return
+        if self._syncing_selection:
+            return
+
+        self._syncing_selection = True
+        try:
+            # 通过树选中，树会触发 node_selected，进而刷新属性面板
+            self.tree_panel.select_by_control_name(node.control_name)
+        finally:
+            self._syncing_selection = False
 
     def _on_field_edit_committed(self, node, field, old_value, new_value):
         """属性面板提交了一次字段编辑，记录到 undo stack。"""
@@ -488,6 +516,10 @@ class MainWindow(QMainWindow):
                 notify_callback=self._on_edit_command_applied,
             )
         self._undo_stack.push(cmd)
+        # 影响预览外观的字段，刷新预览
+        if field in ("description", "object_name", "widget_variant",
+                     "widget_category", "group_props_name"):
+            self.preview_panel.load_tree(self._tree)
 
     def _on_edit_command_applied(self, node, field):
         """
@@ -557,6 +589,7 @@ class MainWindow(QMainWindow):
             remember_name = self._selected_node.control_name
 
         self.tree_panel.load_tree(self._tree)
+        self.preview_panel.load_tree(self._tree)
 
         if remember_name and self._tree.find(remember_name) is not None:
             self.tree_panel.select_by_control_name(remember_name)
@@ -726,6 +759,7 @@ class MainWindow(QMainWindow):
             self._tree = load_tree(self._current_template_path, path)
             self._current_data_path = path
             self.tree_panel.load_tree(self._tree)
+            self.preview_panel.load_tree(self._tree)
             self.property_panel.set_tree(self._tree)
             self._undo_stack.blockSignals(True)
             self._undo_stack.clear()

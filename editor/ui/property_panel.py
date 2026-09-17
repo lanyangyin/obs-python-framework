@@ -5,9 +5,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QLabel, QLineEdit,
     QCheckBox, QComboBox, QScrollArea, QFrame, QSizePolicy,
-    QHBoxLayout, QSpacerItem,
+    QHBoxLayout, QSpacerItem, QToolButton,
 )
-
 from editor.model import (
     WidgetNode, WidgetTree,
     list_control_functions, list_all_function_names,
@@ -79,6 +78,7 @@ class PropertyPanel(QWidget):
         self._current_node: Optional[WidgetNode] = None
         self._tree: Optional[WidgetTree] = None
         self._editors: Dict[str, QWidget] = {}
+        self._search_text: str = ""
 
         self._build_ui()
 
@@ -94,6 +94,30 @@ class PropertyPanel(QWidget):
         self._hint_label.setAlignment(Qt.AlignCenter)
         self._hint_label.setStyleSheet("color: #888; font-size: 14px; padding: 20px;")
         outer.addWidget(self._hint_label)
+
+        # 搜索栏（有选中时显示）
+        self._search_bar = QWidget()
+        search_layout = QHBoxLayout(self._search_bar)
+        search_layout.setContentsMargins(8, 6, 8, 2)
+        search_layout.setSpacing(4)
+
+        self._search_edit = QLineEdit()
+        self._search_edit.setPlaceholderText("搜索字段（名称 / 值）...")
+        self._search_edit.setClearButtonEnabled(True)
+        self._search_edit.textChanged.connect(self._on_search_changed)
+        search_layout.addWidget(self._search_edit)
+
+        self._search_clear_btn = QToolButton()
+        self._search_clear_btn.setText("×")
+        self._search_clear_btn.setToolTip("清空搜索")
+        self._search_clear_btn.setAutoRaise(True)
+        self._search_clear_btn.clicked.connect(
+            lambda: self._search_edit.setText("")
+        )
+        search_layout.addWidget(self._search_clear_btn)
+
+        outer.addWidget(self._search_bar)
+        self._search_bar.hide()
 
         # 滚动区
         self._scroll = QScrollArea()
@@ -200,12 +224,20 @@ class PropertyPanel(QWidget):
         self._clear_form()
         self._scroll.hide()
         self._hint_label.show()
+        self._search_bar.hide()
 
     def _show_form(self, node: WidgetNode):
         self._hint_label.hide()
         self._scroll.show()
+        self._search_bar.show()
+        self._rebuild_form()
+
+    def _rebuild_form(self):
+        """按当前 _search_text 重建表单。"""
         self._clear_form()
-        self._populate_form(node)
+        if self._current_node is None:
+            return
+        self._populate_form(self._current_node, self._search_text)
 
     def _clear_form(self):
         """清空两个分组的表单项。"""
@@ -217,36 +249,86 @@ class PropertyPanel(QWidget):
     # ------------------------------------------------------------------
     # 表单填充
     # ------------------------------------------------------------------
-    def _populate_form(self, node: WidgetNode):
+    def _populate_form(self, node: WidgetNode, search: str = ""):
+        search_lower = search.lower().strip()
+        filter_active = bool(search_lower)
+
         # 1. 结构化字段
         core_count = 0
         for field in CORE_FIELD_ORDER:
             if not hasattr(node, field):
                 continue
             value = getattr(node, field)
+            label = FIELD_LABELS.get(field, field)
+            if filter_active and not self._field_matches(
+                field, label, value, search_lower
+            ):
+                continue
             editor = self._make_editor(node, field, value)
             if editor is None:
                 continue
             self._editors[field] = editor
-            self._core_form.addRow(FIELD_LABELS.get(field, field), editor)
+            self._core_form.addRow(label, editor)
             core_count += 1
+
+        if core_count == 0:
+            hint = QLabel(
+                "（无匹配的结构化字段）" if filter_active else "（无结构化字段）"
+            )
+            hint.setStyleSheet("color: #888; font-style: italic;")
+            self._core_form.addRow(hint)
+            if filter_active:
+                self._core_section.set_expanded(True)
         self._core_section.set_count(core_count)
 
         # 2. 自由属性
         free_count = 0
         if node.properties:
             for prop_name, prop_value in node.properties.items():
+                if filter_active and not self._field_matches(
+                    prop_name, prop_name, prop_value, search_lower
+                ):
+                    continue
                 editor = self._make_property_editor(node, prop_name, prop_value)
                 self._editors[f"prop::{prop_name}"] = editor
                 self._free_form.addRow(prop_name, editor)
                 free_count += 1
+
+        if free_count == 0:
+            hint_text = (
+                "（无匹配的自由属性）" if filter_active else "（无自由属性）"
+            )
+            hint = QLabel(hint_text)
+            hint.setStyleSheet("color: #888; font-style: italic;")
+            self._free_form.addRow(hint)
+            if filter_active:
+                self._free_section.set_expanded(True)
         self._free_section.set_count(free_count)
 
-        # 3. 空分组时给个提示
-        if free_count == 0:
-            empty_hint = QLabel("（无自由属性）")
-            empty_hint.setStyleSheet("color: #888; font-style: italic;")
-            self._free_form.addRow(empty_hint)
+        # 3. 过滤时如果有匹配，自动展开对应 section
+        if filter_active:
+            if core_count > 0 and not self._core_section.is_expanded():
+                self._core_section.set_expanded(True)
+            if free_count > 0 and not self._free_section.is_expanded():
+                self._free_section.set_expanded(True)
+
+    @staticmethod
+    def _field_matches(field_key: str, label: str, value, search_lower: str) -> bool:
+        """字段是否匹配搜索词（匹配 字段名 / 标签 / 值 之一）。"""
+        # 字段名
+        if search_lower in field_key.lower():
+            return True
+        # 显示标签
+        if search_lower in label.lower():
+            return True
+        # 值
+        if value is not None:
+            try:
+                if search_lower in str(value).lower():
+                    return True
+            except Exception:
+                pass
+        return False
 
     # ------------------------------------------------------------------
     # 编辑器工厂
@@ -344,6 +426,11 @@ class PropertyPanel(QWidget):
     # ------------------------------------------------------------------
     # 字段变动
     # ------------------------------------------------------------------
+    def _on_search_changed(self, text: str):
+        self._search_text = text
+        if self._current_node is not None:
+            self._rebuild_form()
+
     def _on_field_changed(self, node: WidgetNode, field: str, value: Any):
         old_value = getattr(node, field, None)
         if old_value == value:
