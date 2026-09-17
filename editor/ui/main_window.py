@@ -127,6 +127,11 @@ class MainWindow(QMainWindow):
         self.tree_panel = TreePanel()
         self.tree_panel.node_selected.connect(self._on_node_selected)
         self.tree_panel.node_move_requested.connect(self._on_node_move_requested)
+        self.tree_panel.context_add_requested.connect(self._on_context_add)
+        self.tree_panel.context_add_child_requested.connect(self._on_context_add_child)
+        self.tree_panel.context_remove_requested.connect(self._on_context_remove)
+        self.tree_panel.context_move_up_requested.connect(self._on_context_move_up)
+        self.tree_panel.context_move_down_requested.connect(self._on_context_move_down)
 
         self.property_panel = PropertyPanel()
         self.property_panel.field_edit_committed.connect(self._on_field_edit_committed)
@@ -492,14 +497,11 @@ class MainWindow(QMainWindow):
     # 节点操作
     # ------------------------------------------------------------------
     def action_add_node(self):
-        if self._tree is None:
-            return
-
-        # 决定插入位置：默认作为选中节点的同级插在它后面
+        """工具栏按钮：在选中节点之后插入同级控件。"""
         node = self._selected_node
         if node is None:
             parent = None
-            index = len(self._tree.roots())
+            index = len(self._tree.roots()) if self._tree else 0
         else:
             parent = node.parent
             siblings = parent.children if parent is not None else self._tree.roots()
@@ -507,22 +509,7 @@ class MainWindow(QMainWindow):
                 index = siblings.index(node) + 1
             except ValueError:
                 index = len(siblings)
-
-        dlg = NewNodeDialog(self, self._tree)
-        if dlg.exec() != QDialog.Accepted:
-            return
-
-        new_node = dlg.result_node()
-        try:
-            cmd = AddNodeCommand(self._tree, new_node, parent, index)
-            self._undo_stack.push(cmd)
-        except ValueError as e:
-            QMessageBox.warning(self, "新建失败", str(e))
-            return
-
-        self._log.info(
-            f"新建控件: {new_node.control_name} ({new_node.widget_category})"
-        )
+        self._add_node_at(parent, index)
 
     def action_remove_node(self):
         node = self._selected_node
@@ -609,4 +596,79 @@ class MainWindow(QMainWindow):
             f"props_name={old_props} -> {source_node.props_name}, "
             f"new_parent={new_parent.control_name if new_parent else '(root)'}, "
             f"index={new_index}"
+        )
+
+    # ------------------------------------------------------------------
+    # 右键菜单响应
+    # ------------------------------------------------------------------
+    def _on_context_add(self, node):
+        """
+        在指定节点之后插入同级控件。
+        node=None 表示在根末尾追加。
+        """
+        if self._tree is None:
+            return
+
+        if node is None:
+            parent = None
+            index = len(self._tree.roots())
+        else:
+            parent = node.parent
+            siblings = parent.children if parent is not None else self._tree.roots()
+            try:
+                index = siblings.index(node) + 1
+            except ValueError:
+                index = len(siblings)
+
+        self._add_node_at(parent, index)
+
+    def _on_context_add_child(self, parent_node):
+        """在分组下追加一个子控件。"""
+        if self._tree is None or parent_node is None or not parent_node.is_group:
+            return
+        if not parent_node.group_props_name:
+            QMessageBox.warning(
+                self, "提示",
+                f"分组 '{parent_node.control_name}' 没有 group_props_name，"
+                f"请先在属性面板中设置。"
+            )
+            return
+        self._add_node_at(parent_node, len(parent_node.children))
+
+    def _on_context_remove(self, node):
+        """右键删除指定节点。"""
+        if node is None or self._tree is None:
+            return
+        # 让选中状态与 node 对齐（右键已经在 TreePanel 里设过 setCurrentIndex，
+        # 但为了保险起见再走一次 _selected_node 逻辑）
+        self._selected_node = node
+        self.action_remove_node()
+
+    def _on_context_move_up(self, node):
+        if node is None or self._tree is None:
+            return
+        self._selected_node = node
+        self._move_selected(-1)
+
+    def _on_context_move_down(self, node):
+        if node is None or self._tree is None:
+            return
+        self._selected_node = node
+        self._move_selected(+1)
+
+    def _add_node_at(self, parent, index):
+        """在 (parent, index) 处新建节点。parent=None 表示根级。"""
+        dlg = NewNodeDialog(self, self._tree)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        new_node = dlg.result_node()
+        try:
+            cmd = AddNodeCommand(self._tree, new_node, parent, index)
+            self._undo_stack.push(cmd)
+        except ValueError as e:
+            QMessageBox.warning(self, "新建失败", str(e))
+            return
+        self._log.info(
+            f"新建控件: {new_node.control_name} ({new_node.widget_category}) "
+            f"parent={parent.control_name if parent else '(root)'} index={index}"
         )

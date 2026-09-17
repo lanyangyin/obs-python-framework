@@ -1,10 +1,10 @@
 """左侧控件树面板。支持拖拽排序，所有结构变更走 MoveNodeCommand。"""
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QStandardItem, QStandardItemModel, QBrush, QColor
+from PySide6.QtGui import QStandardItem, QStandardItemModel, QBrush, QColor, QAction
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeView, QAbstractItemView,
+    QMenu, QApplication,
 )
-
 from editor.model import WidgetTree, WidgetNode
 
 
@@ -65,6 +65,12 @@ class TreePanel(QWidget):
 
     node_selected = Signal(object)                     # WidgetNode or None
     node_move_requested = Signal(object, object, int)  # source, new_parent, new_index
+    # 右键菜单信号：由 MainWindow 接，复用已有 action
+    context_add_requested = Signal(object)       # node or None（None 表示插到根末尾）
+    context_add_child_requested = Signal(object) # parent_node（仅 GROUP）
+    context_remove_requested = Signal(object)    # node
+    context_move_up_requested = Signal(object)   # node
+    context_move_down_requested = Signal(object) # node
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -89,6 +95,10 @@ class TreePanel(QWidget):
 
         self._view.selectionModel().selectionChanged.connect(self._on_selection_changed)
         self._view.drop_computed.connect(self._on_drop_computed)
+
+        # 右键菜单
+        self._view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._view.customContextMenuRequested.connect(self._on_context_menu)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -302,3 +312,95 @@ class TreePanel(QWidget):
                 return
 
         self.node_move_requested.emit(source_node, new_parent, new_index)
+
+    # ------------------------------------------------------------------
+    # 右键菜单
+    # ------------------------------------------------------------------
+    def _on_context_menu(self, pos):
+        """在树视图的 pos 位置弹出右键菜单。"""
+        index = self._view.indexAt(pos)
+
+        # 先选中被点击的节点（无节点则清空选中）
+        if index.isValid():
+            self._view.setCurrentIndex(index)
+            item = self._model.itemFromIndex(index)
+            node = item.data(self.NODE_ROLE) if item else None
+        else:
+            self._view.clearSelection()
+            self._view.setCurrentIndex(self._model.index(-1, -1))
+            node = None
+
+        menu = QMenu(self)
+
+        # 新建（同级 / 子级）
+        act_add = menu.addAction("新建控件")
+        act_add.triggered.connect(
+            lambda: self.context_add_requested.emit(node)
+        )
+
+        act_add_child = menu.addAction("新建子控件")
+        can_add_child = node is not None and node.is_group
+        act_add_child.setEnabled(can_add_child)
+        act_add_child.triggered.connect(
+            lambda: self.context_add_child_requested.emit(node)
+        )
+
+        menu.addSeparator()
+
+        # 删除
+        act_remove = menu.addAction("删除")
+        act_remove.setEnabled(node is not None)
+        act_remove.triggered.connect(
+            lambda: self.context_remove_requested.emit(node)
+        )
+
+        # 上移 / 下移
+        can_up, can_down = self._calc_move_states(node)
+        act_up = menu.addAction("上移")
+        act_up.setEnabled(can_up)
+        act_up.triggered.connect(
+            lambda: self.context_move_up_requested.emit(node)
+        )
+
+        act_down = menu.addAction("下移")
+        act_down.setEnabled(can_down)
+        act_down.triggered.connect(
+            lambda: self.context_move_down_requested.emit(node)
+        )
+
+        menu.addSeparator()
+
+        # 展开 / 折叠
+        act_expand = menu.addAction("展开全部")
+        act_expand.triggered.connect(self._view.expandAll)
+
+        act_collapse = menu.addAction("折叠全部")
+        act_collapse.triggered.connect(self._view.collapseAll)
+
+        menu.addSeparator()
+
+        # 复制 control_name
+        act_copy = menu.addAction("复制 control_name")
+        act_copy.setEnabled(node is not None)
+        act_copy.triggered.connect(
+            lambda: self._copy_control_name(node)
+        )
+
+        menu.exec(self._view.viewport().mapToGlobal(pos))
+
+    def _calc_move_states(self, node):
+        """返回 (can_up, can_down)。"""
+        if node is None or self._tree is None:
+            return False, False
+        parent = node.parent
+        siblings = parent.children if parent is not None else self._tree.roots()
+        try:
+            idx = siblings.index(node)
+        except ValueError:
+            return False, False
+        return idx > 0, idx < len(siblings) - 1
+
+    def _copy_control_name(self, node):
+        if node is None:
+            return
+        QApplication.clipboard().setText(node.control_name)
