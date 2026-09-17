@@ -30,6 +30,7 @@ from .function_editor import (
     delete_function,
     clear_references,
 )
+from .tree_constraints import is_builtin, clamp_root_insert_index, is_move_allowed
 from .props_utils import recompute_props_names
 from .diff import (
     DiffReport, NodeDiff, FieldChange, diff_trees,
@@ -77,4 +78,7 @@ __all__ = [
     "delete_function",
     "clear_references",
     "list_functions_for_field",
+    "is_builtin",
+    "clamp_root_insert_index",
+    "is_move_allowed",
 ]

@@ -302,11 +302,11 @@ def clear_references(tree, func_name: str) -> int:
             node.modified_callback_enabled = False
             count += 1
 
-        # 自由属性
+        # 自由属性：清空值而不删 key（保留字段在属性面板显示）
         props = node.properties or {}
         for key in list(props.keys()):
             if props.get(key) == func_name:
-                props.pop(key, None)
+                props[key] = ""
                 count += 1
 
     return count

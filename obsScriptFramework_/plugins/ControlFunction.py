@@ -304,12 +304,4 @@ class ControlDataSetFunction(ClearableCache, metaclass=AliasMeta):
         v = "C:\\"
         return v
 
-    @staticmethod
-    @lru_cache(maxsize=None)
-    @add_clear_cache
-    def default_true_(*args, **kwargs):
-        """回调：default_true_"""
-        # TODO: 实现具体逻辑
-        return True
-
 

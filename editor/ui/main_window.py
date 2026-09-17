@@ -772,6 +772,13 @@ class MainWindow(QMainWindow):
             self._act_down.setEnabled(False)
             return
 
+        from editor.model import is_builtin
+        if is_builtin(node):
+            self._act_remove.setEnabled(False)
+            self._act_up.setEnabled(False)
+            self._act_down.setEnabled(False)
+            return
+
         parent = node.parent
         siblings = parent.children if parent is not None else self._tree.roots()
         try:
@@ -999,6 +1006,12 @@ class MainWindow(QMainWindow):
         if node is None or self._tree is None:
             return
 
+        from editor.model import is_builtin, clamp_root_insert_index
+
+        if is_builtin(node):
+            self._log.debug(f"内置控件不可移动: {node.control_name}")
+            return
+
         parent = node.parent
         siblings = parent.children if parent is not None else self._tree.roots()
         try:
@@ -1010,6 +1023,18 @@ class MainWindow(QMainWindow):
         if new_idx < 0 or new_idx >= len(siblings):
             return
 
+        # 根级移动约束：不能越过内置按钮
+        if parent is None:
+            clamped = clamp_root_insert_index(self._tree, node, new_idx)
+            if clamped is None:
+                self._log.debug(
+                    f"移动被拒绝：{node.control_name} 试图越过内置按钮"
+                )
+                return
+            new_idx = clamped
+            if new_idx == idx:
+                return
+
         try:
             cmd = MoveNodeCommand(self._tree, node, parent, new_idx)
             self._undo_stack.push(cmd)
@@ -1018,13 +1043,24 @@ class MainWindow(QMainWindow):
             return
 
         self._log.info(
-            f"移动控件: {node.control_name} -> {parent.control_name if parent else '(root)'} "
+            f"移动控件: {node.control_name} -> "
+            f"{parent.control_name if parent else '(root)'} "
             f"index={new_idx}"
         )
 
     def _on_node_move_requested(self, source_node, new_parent, new_index):
         if self._tree is None:
             return
+
+        from editor.model import is_move_allowed
+        if not is_move_allowed(self._tree, source_node, new_parent, new_index):
+            self._log.debug(
+                f"拖放被拒绝: {source_node.control_name} -> "
+                f"{new_parent.control_name if new_parent else '(root)'} "
+                f"index={new_index}"
+            )
+            return
+
         old_props = source_node.props_name
         try:
             cmd = MoveNodeCommand(self._tree, source_node, new_parent, new_index)

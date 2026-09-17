@@ -369,6 +369,10 @@ class TreePanel(QWidget):
 
         is_builtin = node is not None and is_builtin_control(node.control_name)
 
+        from editor.model.csv_io import is_builtin_control
+        is_builtin = node is not None and is_builtin_control(node.control_name)
+
+        # 删除
         act_remove = menu.addAction("删除")
         act_remove.setEnabled(node is not None and not is_builtin)
         act_remove.triggered.connect(
@@ -378,13 +382,13 @@ class TreePanel(QWidget):
         # 上移 / 下移
         can_up, can_down = self._calc_move_states(node)
         act_up = menu.addAction("上移")
-        act_up.setEnabled(can_up)
+        act_up.setEnabled(can_up and not is_builtin)
         act_up.triggered.connect(
             lambda: self.context_move_up_requested.emit(node)
         )
 
         act_down = menu.addAction("下移")
-        act_down.setEnabled(can_down)
+        act_down.setEnabled(can_down and not is_builtin)
         act_down.triggered.connect(
             lambda: self.context_move_down_requested.emit(node)
         )
