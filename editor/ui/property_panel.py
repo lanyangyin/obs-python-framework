@@ -13,6 +13,7 @@ from editor.model import (
     list_control_functions, list_all_function_names,
     list_variants_for,
 )
+from editor.ui.collapsible_section import CollapsibleSection
 
 # 字段编辑顺序（先核心字段，再自由属性）
 CORE_FIELD_ORDER = [
@@ -70,6 +71,8 @@ class PropertyPanel(QWidget):
 
     # 某个字段被编辑后发出，参数：(node, field_name, old_value, new_value)
     field_edit_committed = Signal(object, str, object, object)
+    # 分组折叠状态变化，参数：(section_key, expanded)
+    section_toggled = Signal(str, bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -97,17 +100,48 @@ class PropertyPanel(QWidget):
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.NoFrame)
 
-        self._form_host = QWidget()
-        self._form_layout = QFormLayout(self._form_host)
-        self._form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self._form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self._form_layout.setContentsMargins(12, 12, 12, 12)
-        self._form_layout.setSpacing(8)
+        # 滚动区内的容器，纵向排布两个 CollapsibleSection
+        host = QWidget()
+        host_layout = QVBoxLayout(host)
+        host_layout.setContentsMargins(4, 4, 4, 4)
+        host_layout.setSpacing(8)
 
-        self._scroll.setWidget(self._form_host)
+        # --- 结构化字段 section ---
+        self._core_section = CollapsibleSection("结构化字段", expanded=True)
+        self._core_form_host = QWidget()
+        self._core_form = QFormLayout(self._core_form_host)
+        self._core_form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self._core_form.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self._core_form.setContentsMargins(0, 0, 0, 0)
+        self._core_form.setSpacing(6)
+        self._core_section.set_content(self._core_form_host)
+        host_layout.addWidget(self._core_section)
+
+        # --- 自由属性 section ---
+        self._free_section = CollapsibleSection("自由属性", expanded=True)
+        self._free_form_host = QWidget()
+        self._free_form = QFormLayout(self._free_form_host)
+        self._free_form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self._free_form.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self._free_form.setContentsMargins(0, 0, 0, 0)
+        self._free_form.setSpacing(6)
+        self._free_section.set_content(self._free_form_host)
+        host_layout.addWidget(self._free_section)
+
+        host_layout.addStretch()
+
+        self._scroll.setWidget(host)
         outer.addWidget(self._scroll)
 
         self._scroll.hide()
+
+        # 展开/折叠状态变化时通知主窗口（用于持久化）
+        self._core_section.toggled.connect(
+            lambda v: self.section_toggled.emit("core", v)
+        )
+        self._free_section.toggled.connect(
+            lambda v: self.section_toggled.emit("free", v)
+        )
 
     # ------------------------------------------------------------------
     # 对外接口
@@ -174,16 +208,18 @@ class PropertyPanel(QWidget):
         self._populate_form(node)
 
     def _clear_form(self):
-        """清空所有表单项。"""
-        while self._form_layout.rowCount() > 0:
-            self._form_layout.removeRow(0)
+        """清空两个分组的表单项。"""
+        for form in (self._core_form, self._free_form):
+            while form.rowCount() > 0:
+                form.removeRow(0)
         self._editors.clear()
 
     # ------------------------------------------------------------------
     # 表单填充
     # ------------------------------------------------------------------
     def _populate_form(self, node: WidgetNode):
-        # 1. 核心字段
+        # 1. 结构化字段
+        core_count = 0
         for field in CORE_FIELD_ORDER:
             if not hasattr(node, field):
                 continue
@@ -192,20 +228,25 @@ class PropertyPanel(QWidget):
             if editor is None:
                 continue
             self._editors[field] = editor
-            self._form_layout.addRow(FIELD_LABELS.get(field, field), editor)
+            self._core_form.addRow(FIELD_LABELS.get(field, field), editor)
+            core_count += 1
+        self._core_section.set_count(core_count)
 
-        # 2. 分隔线
-        self._form_layout.addRow(self._make_separator())
-
-        # 3. 自由属性（properties）
+        # 2. 自由属性
+        free_count = 0
         if node.properties:
-            header = QLabel("自由属性")
-            header.setStyleSheet("font-weight: 600; color: #555; margin-top: 6px;")
-            self._form_layout.addRow(header)
             for prop_name, prop_value in node.properties.items():
                 editor = self._make_property_editor(node, prop_name, prop_value)
                 self._editors[f"prop::{prop_name}"] = editor
-                self._form_layout.addRow(prop_name, editor)
+                self._free_form.addRow(prop_name, editor)
+                free_count += 1
+        self._free_section.set_count(free_count)
+
+        # 3. 空分组时给个提示
+        if free_count == 0:
+            empty_hint = QLabel("（无自由属性）")
+            empty_hint.setStyleSheet("color: #888; font-style: italic;")
+            self._free_form.addRow(empty_hint)
 
     # ------------------------------------------------------------------
     # 编辑器工厂
@@ -288,13 +329,18 @@ class PropertyPanel(QWidget):
         )
         return editor
 
-    def _make_separator(self) -> QFrame:
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
-        line.setStyleSheet("color: #ccc;")
-        return line
+    def set_section_expanded(self, section_key: str, expanded: bool):
+        if section_key == "core":
+            self._core_section.set_expanded(expanded)
+        elif section_key == "free":
+            self._free_section.set_expanded(expanded)
 
+    def get_section_expanded(self, section_key: str) -> bool:
+        if section_key == "core":
+            return self._core_section.is_expanded()
+        if section_key == "free":
+            return self._free_section.is_expanded()
+        return True
     # ------------------------------------------------------------------
     # 字段变动
     # ------------------------------------------------------------------

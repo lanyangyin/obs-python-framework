@@ -20,6 +20,7 @@ from .diff import (
     DiffReport, NodeDiff, FieldChange, diff_trees,
 )
 from .variant_registry import list_variants_for, default_variant_for
+from .template_generator import generate_all, summarize, collect_function_names
 
 __all__ = [
     "WidgetNode",
@@ -43,4 +44,7 @@ __all__ = [
     "diff_trees",
     "list_variants_for",
     "default_variant_for",
+    "generate_all",
+    "summarize",
+    "collect_function_names",
 ]

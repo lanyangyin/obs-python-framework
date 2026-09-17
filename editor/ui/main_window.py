@@ -1,5 +1,6 @@
 """编辑器主窗口。"""
 import sys
+from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt
@@ -28,6 +29,13 @@ from editor.settings_manager import load_settings, save_settings, EditorSettings
 from editor.ui.style_utils import apply_to_app
 from editor.ui.settings_dialog import SettingsDialog
 from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import (
+    QMainWindow, QSplitter, QToolBar, QStatusBar,
+    QFileDialog, QMessageBox, QLabel, QWidget, QVBoxLayout,
+    QDialog, QToolButton, QMenu,
+)
+
+from editor.session_manager import SessionManager
 
 class MainWindow(QMainWindow):
 
@@ -35,6 +43,13 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._log = get_logger()
         self._editor_settings = load_settings()
+        self._session = SessionManager()
+
+        # 恢复上次打开的路径（如果存在且可读）
+        last_data = self._session.last_data_path()
+        if last_data:
+            self._current_data_path = last_data
+        # 否则沿用 default_data_path()（已在字段初始化里设过）
         self._log.info("MainWindow 初始化")
         self.setWindowTitle("OBS Script Framework - 控件编辑器")
         self.resize(1200, 700)
@@ -42,6 +57,10 @@ class MainWindow(QMainWindow):
         self._tree: Optional[WidgetTree] = None
         self._current_template_path: str = default_template_path()
         self._current_data_path: str = default_data_path()
+        self._session = SessionManager()
+        last_data = self._session.last_data_path()
+        if last_data:
+            self._current_data_path = last_data
         self._modified: bool = False
         self._selected_node = None
         self._undo_stack = QUndoStack(self)
@@ -50,6 +69,16 @@ class MainWindow(QMainWindow):
         self._build_toolbar()
         self._build_central()
         self._build_statusbar()
+
+        # 恢复属性面板折叠状态
+        self.property_panel.set_section_expanded(
+            "core", self._session.get_section_expanded("core", True)
+        )
+        self.property_panel.set_section_expanded(
+            "free", self._session.get_section_expanded("free", True)
+        )
+
+        self._load_default()
 
         self._load_default()
 
@@ -65,6 +94,16 @@ class MainWindow(QMainWindow):
         act_open = QAction("打开...", self)
         act_open.triggered.connect(self.action_open)
         tb.addAction(act_open)
+
+        # 最近文件下拉
+        self._recent_menu = QMenu(self)
+        self._recent_menu.aboutToShow.connect(self._rebuild_recent_menu)
+
+        btn_recent = QToolButton(self)
+        btn_recent.setText("最近文件")
+        btn_recent.setMenu(self._recent_menu)
+        btn_recent.setPopupMode(QToolButton.InstantPopup)
+        tb.addWidget(btn_recent)
 
         act_save = QAction("保存", self)
         act_save.triggered.connect(self.action_save)
@@ -143,6 +182,15 @@ class MainWindow(QMainWindow):
 
         self.property_panel = PropertyPanel()
         self.property_panel.field_edit_committed.connect(self._on_field_edit_committed)
+        self.property_panel.section_toggled.connect(self._on_section_toggled)
+
+        # 恢复折叠状态
+        self.property_panel.set_section_expanded(
+            "core", self._session.get_section_expanded("core", True)
+        )
+        self.property_panel.set_section_expanded(
+            "free", self._session.get_section_expanded("free", True)
+        )
 
         splitter.addWidget(self.tree_panel)
         splitter.addWidget(self.property_panel)
@@ -171,19 +219,20 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     def _load_default(self):
         try:
-            self._log.info(f"加载默认 CSV: {self._current_data_path}")
+            self._log.info(f"加载 CSV: {self._current_data_path}")
             self._tree = load_tree(self._current_template_path, self._current_data_path)
             self.tree_panel.load_tree(self._tree)
             self.property_panel.set_tree(self._tree)
             self._modified = False
             self._refresh_status()
             self._log.info(f"加载成功，节点数={len(self._tree)}")
+
+            self._session.set_last_data_path(self._current_data_path)
+            self._session.add_recent_file(self._current_data_path)
+            self._session.sync()
         except Exception as e:
-            log_exception(self._log, "加载默认 CSV 失败", e)
-            QMessageBox.critical(self, "加载失败", f"无法加载默认 CSV:\n{e}")
-        self._undo_stack.blockSignals(True)
-        self._undo_stack.clear()
-        self._undo_stack.blockSignals(False)
+            log_exception(self._log, "加载 CSV 失败", e)
+            QMessageBox.critical(self, "加载失败", f"无法加载 CSV:\n{e}")
 
     def action_open_log_dir(self):
         import os
@@ -201,6 +250,20 @@ class MainWindow(QMainWindow):
         except Exception as e:
             log_exception(self._log, "打开日志目录失败", e)
             QMessageBox.warning(self, "打开失败", f"无法打开目录：{log_dir}\n{e}")
+
+    def action_open_settings(self):
+        from PySide6.QtWidgets import QApplication
+        from editor.ui.settings_dialog import SettingsDialog
+        from editor.ui.style_utils import apply_to_app
+        from editor.settings_manager import save_settings
+
+        dlg = SettingsDialog(self._editor_settings, self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        self._editor_settings = dlg.result_settings()
+        save_settings(self._editor_settings)
+        apply_to_app(QApplication.instance(), self._editor_settings)
+        self._log.info(f"编辑器设置已更新: theme={self._editor_settings.theme}")
 
     def action_open(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -225,6 +288,61 @@ class MainWindow(QMainWindow):
         self._undo_stack.clear()
         self._undo_stack.blockSignals(False)
 
+    def _open_recent(self, path: str):
+        """从最近文件列表打开。"""
+        if not Path(path).exists():
+            QMessageBox.warning(self, "文件不存在", f"该文件已被删除或移动：\n{path}")
+            self._session.add_recent_file(path)  # 触发过滤
+            return
+
+        try:
+            self._log.info(f"打开最近文件: {path}")
+            self._tree = load_tree(self._current_template_path, path)
+            self._current_data_path = path
+            self.tree_panel.load_tree(self._tree)
+            self.property_panel.set_tree(self._tree)
+            self._undo_stack.blockSignals(True)
+            self._undo_stack.clear()
+            self._undo_stack.blockSignals(False)
+            self._modified = False
+            self._refresh_status()
+
+            self._session.set_last_data_path(path)
+            self._session.add_recent_file(path)
+            self._session.set_last_directory(path)
+            self._session.sync()
+        except Exception as e:
+            log_exception(self._log, f"打开最近文件失败: {path}", e)
+            QMessageBox.critical(self, "打开失败", str(e))
+
+    def _clear_recent(self):
+        self._session.clear_recent_files()
+        self._session.sync()
+        self._log.info("清空最近文件列表")
+
+    def _rebuild_recent_menu(self):
+        """每次弹出前重建最近文件菜单。"""
+        self._recent_menu.clear()
+
+        files = self._session.recent_files()
+        if not files:
+            act_empty = self._recent_menu.addAction("（无最近文件）")
+            act_empty.setEnabled(False)
+            return
+
+        for path in files:
+            p = Path(path)
+            label = f"{p.name}   —   {p.parent}"
+            act = self._recent_menu.addAction(label)
+            act.setToolTip(path)
+            act.triggered.connect(
+                lambda checked=False, _p=path: self._open_recent(_p)
+            )
+
+        self._recent_menu.addSeparator()
+        act_clear = self._recent_menu.addAction("清空最近列表")
+        act_clear.triggered.connect(self._clear_recent)
+
     def _load_disk_tree(self):
         """
         加载磁盘上的当前数据文件，用于差异对比。
@@ -248,6 +366,11 @@ class MainWindow(QMainWindow):
             self._refresh_status()
             self.status_bar.showMessage(f"已保存到 {path}", 3000)
             self._log.info(f"保存成功: {path}")
+
+            self._session.set_last_data_path(path)
+            self._session.add_recent_file(path)
+            self._session.set_last_directory(path)
+            self._session.sync()
         except Exception as e:
             log_exception(self._log, "保存失败", e)
             QMessageBox.critical(self, "保存失败", str(e))
@@ -274,8 +397,9 @@ class MainWindow(QMainWindow):
     def action_save_as(self):
         if self._tree is None:
             return
+        start_dir = self._session.last_directory()
         path, _ = QFileDialog.getSaveFileName(
-            self, "另存为", self._current_data_path,
+            self, "另存为", start_dir,
             "CSV 文件 (*.csv);;所有文件 (*)",
         )
         if not path:
@@ -312,6 +436,14 @@ class MainWindow(QMainWindow):
         self._undo_stack.blockSignals(True)
         self._undo_stack.clear()
         self._undo_stack.blockSignals(False)
+
+    def closeEvent(self, event):
+        try:
+            if self._session is not None:
+                self._session.sync()
+        except Exception:
+            pass
+        super().closeEvent(event)
 
     # ------------------------------------------------------------------
     # 信号
@@ -352,6 +484,10 @@ class MainWindow(QMainWindow):
         if self.property_panel.current_node() is node:
             self.property_panel.refresh_field(field)
         self._refresh_status()
+
+    def _on_section_toggled(self, section_key: str, expanded: bool):
+        self._session.set_section_expanded(section_key, expanded)
+        self._session.sync()
 
     def _refresh_tree_label(self, node):
         """刷新树中某个节点的显示文本。"""
@@ -561,14 +697,34 @@ class MainWindow(QMainWindow):
     def action_move_down(self):
         self._move_selected(+1)
 
-    def action_open_settings(self):
-        dlg = SettingsDialog(self._editor_settings, self)
-        if dlg.exec() != QDialog.Accepted:
+    def action_open(self):
+        start_dir = self._session.last_directory()
+        path, _ = QFileDialog.getOpenFileName(
+            self, "打开 widgetData.csv", start_dir,
+            "CSV 文件 (*.csv);;所有文件 (*)",
+        )
+        if not path:
             return
-        self._editor_settings = dlg.result_settings()
-        save_settings(self._editor_settings)
-        apply_to_app(QApplication.instance(), self._editor_settings)
-        self._log.info(f"编辑器设置已更新: theme={self._editor_settings.theme}")
+        try:
+            self._log.info(f"打开文件: {path}")
+            self._tree = load_tree(self._current_template_path, path)
+            self._current_data_path = path
+            self.tree_panel.load_tree(self._tree)
+            self.property_panel.set_tree(self._tree)
+            self._undo_stack.blockSignals(True)
+            self._undo_stack.clear()
+            self._undo_stack.blockSignals(False)
+            self._modified = False
+            self._refresh_status()
+            self._log.info(f"打开成功，节点数={len(self._tree)}")
+
+            self._session.set_last_data_path(path)
+            self._session.add_recent_file(path)
+            self._session.set_last_directory(path)
+            self._session.sync()
+        except Exception as e:
+            log_exception(self._log, f"打开文件失败: {path}", e)
+            QMessageBox.critical(self, "打开失败", str(e))
 
     def _move_selected(self, delta: int):
         node = self._selected_node

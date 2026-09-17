@@ -19,6 +19,7 @@ _MAX_RECENT = 10
 _KEY_RECENT = "recent/data_files"
 _KEY_LAST_DATA = "session/last_data_path"
 _KEY_LAST_DIR = "session/last_directory"
+_KEY_SECTION_EXPANDED = "session/section_expanded"
 
 
 class SessionManager:
@@ -87,6 +88,22 @@ class SessionManager:
             p = p.parent
         if p.is_dir():
             self._s.setValue(_KEY_LAST_DIR, str(p))
+
+    # ------------------------------------------------------------------
+    # 属性面板分组折叠状态
+    # ------------------------------------------------------------------
+    def get_section_expanded(self, key: str, default: bool = True) -> bool:
+        data = self._s.value(_KEY_SECTION_EXPANDED, {}) or {}
+        if not isinstance(data, dict):
+            return default
+        return bool(data.get(key, default))
+
+    def set_section_expanded(self, key: str, value: bool) -> None:
+        data = self._s.value(_KEY_SECTION_EXPANDED, {}) or {}
+        if not isinstance(data, dict):
+            data = {}
+        data[key] = bool(value)
+        self._s.setValue(_KEY_SECTION_EXPANDED, data)
 
     # ------------------------------------------------------------------
     # 同步
